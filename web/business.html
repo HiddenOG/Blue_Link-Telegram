@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Business Profile</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* --- Loader --- */
+        .profile-loader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            gap: 16px;
+        }
+
+        .profile-loader .spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--button-color, #248bcf);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* --- Photo Gallery --- */
+        .gallery-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: var(--secondary-bg, #1a1a1a);
+            overflow: hidden;
+        }
+
+        .gallery-track {
+            display: flex;
+            height: 100%;
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .gallery-slide {
+            min-width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .gallery-slide img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .gallery-dots {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 6px;
+            z-index: 2;
+        }
+
+        .gallery-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.4);
+            transition: all 0.3s;
+        }
+
+        .gallery-dot.active {
+            background: #fff;
+            transform: scale(1.3);
+        }
+
+        .gallery-counter {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            z-index: 2;
+        }
+
+        .no-photos {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--hint-color, #888);
+            font-size: 1.1rem;
+            gap: 8px;
+        }
+
+        /* --- Fullscreen Viewer --- */
+        .fullscreen-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .fullscreen-overlay.active {
+            display: flex;
+        }
+
+        .fullscreen-overlay img {
+            max-width: 100%;
+            max-height: 90vh;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+
+        .fullscreen-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+            border: none;
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .fullscreen-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+            border: none;
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .fullscreen-prev {
+            left: 12px;
+        }
+
+        .fullscreen-next {
+            right: 12px;
+        }
+
+        /* --- Profile Content --- */
+        .profile-content {
+            padding: 20px 16px 120px;
+        }
+
+        .biz-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 8px;
+        }
+
+        .biz-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .biz-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: var(--secondary-bg, #1a1a1a);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: var(--hint-color, #aaa);
+        }
+
+        .biz-tag .tag-icon {
+            font-size: 0.9rem;
+        }
+
+        .featured-badge {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #000;
+            font-weight: 600;
+        }
+
+        .biz-description {
+            line-height: 1.65;
+            font-size: 0.95rem;
+            color: var(--hint-color, #ccc);
+            margin-top: 12px;
+            white-space: pre-line;
+        }
+
+        .section-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+            margin: 20px 0;
+        }
+
+        /* --- Contact Bar --- */
+        .contact-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 16px;
+            z-index: 10;
+            background: linear-gradient(transparent, #000000 30%);
+        }
+
+        .contact-btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 14px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #25D366, #128C7E);
+            color: #fff;
+            transition: all 0.2s;
+            box-shadow: 0 4px 20px rgba(37, 211, 102, 0.3);
+        }
+
+        .contact-btn:active {
+            transform: scale(0.97);
+        }
+
+        .contact-btn.loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .contact-btn .btn-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        .legacy-badge {
+            font-size: 0.75rem;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 4px 10px;
+            border-radius: 8px;
+            margin-top: 8px;
+            text-align: center;
+            color: var(--hint-color, #888);
+        }
+
+        .out-of-coins {
+            background: #555 !important;
+            box-shadow: none !important;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        /* --- Error --- */
+        .profile-error {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            gap: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .profile-error .error-icon {
+            font-size: 3rem;
+        }
+
+        .profile-error p {
+            color: var(--hint-color, #888);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Loader -->
+    <div id="loader" class="profile-loader">
+        <div class="spinner"></div>
+        <p style="color:var(--hint-color,#888); font-size:0.9rem;">Loading business profile...</p>
+    </div>
+
+    <!-- Error -->
+    <div id="error-view" style="display:none;">
+        <div class="profile-error">
+            <span class="error-icon">⚠️</span>
+            <h2>Oops!</h2>
+            <p id="error-msg">Something went wrong.</p>
+        </div>
+    </div>
+
+    <!-- Profile -->
+    <div id="profile" style="display:none;">
+        <!-- Photo Gallery -->
+        <div class="gallery-container" id="gallery">
+            <div class="gallery-track" id="gallery-track"></div>
+            <div class="gallery-dots" id="gallery-dots"></div>
+            <div class="gallery-counter" id="gallery-counter"></div>
+        </div>
+
+        <!-- Business Info -->
+        <div class="profile-content">
+            <h1 class="biz-name" id="biz-name"></h1>
+            <div class="biz-tags" id="biz-tags"></div>
+            <div class="section-divider"></div>
+            <p class="biz-description" id="biz-description"></p>
+        </div>
+
+        <!-- Contact Button -->
+        <div class="contact-bar">
+            <button class="contact-btn" id="contact-btn">
+                💬 Contact on WhatsApp
+            </button>
+            <div id="contact-status"></div>
+        </div>
+    </div>
+
+    <!-- Fullscreen Image Viewer -->
+    <div class="fullscreen-overlay" id="fullscreen">
+        <button class="fullscreen-close" id="fs-close">✕</button>
+        <button class="fullscreen-nav fullscreen-prev" id="fs-prev">‹</button>
+        <img id="fs-image" src="" alt="Full photo">
+        <button class="fullscreen-nav fullscreen-next" id="fs-next">›</button>
+    </div>
+
+    <script>
+        const WebApp = window.Telegram.WebApp;
+        WebApp.expand();
+        WebApp.ready();
+
+        // Parse URL params
+        const params = new URLSearchParams(window.location.search);
+        const businessId = params.get('id');
+        const customerId = params.get('uid');
+
+        let bizData = null;
+        let galleryIndex = 0;
+        let photoUrls = [];
+
+        // --- Init ---
+        async function init() {
+            if (!businessId) {
+                showError('No business ID provided.');
+                return;
+            }
+
+            try {
+                const resp = await fetch(`/api/business/${businessId}`, {
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
+                if (!resp.ok) throw new Error('Business not found');
+
+                bizData = await resp.json();
+                renderProfile();
+            } catch (err) {
+                showError(err.message);
+            }
+        }
+
+        function showError(msg) {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('error-msg').textContent = msg;
+            document.getElementById('error-view').style.display = 'block';
+        }
+
+        // --- Render ---
+        function renderProfile() {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('profile').style.display = 'block';
+
+            // Name
+            document.getElementById('biz-name').textContent = bizData.business_name;
+
+            // Tags
+            const tagsEl = document.getElementById('biz-tags');
+            tagsEl.innerHTML = '';
+
+            if (bizData.is_boosted) {
+                tagsEl.innerHTML += `<span class="biz-tag featured-badge"><span class="tag-icon">⭐</span> Featured</span>`;
+            }
+            tagsEl.innerHTML += `<span class="biz-tag"><span class="tag-icon">🛠️</span> ${bizData.service || 'N/A'}</span>`;
+            tagsEl.innerHTML += `<span class="biz-tag"><span class="tag-icon">📍</span> ${bizData.location || 'N/A'}</span>`;
+
+            // Description
+            document.getElementById('biz-description').textContent = bizData.description || 'No description available.';
+
+            // Photos
+            renderGallery();
+
+            // Contact button state
+            if (!bizData.has_owner) {
+                document.getElementById('contact-status').innerHTML =
+                    '<div class="legacy-badge">📜 Legacy listing — direct contact</div>';
+            } else if (bizData.owner_coins <= 0) {
+                const btn = document.getElementById('contact-btn');
+                btn.classList.add('out-of-coins');
+                btn.textContent = '⚠️ Business unavailable';
+            }
+        }
+
+        // --- Gallery ---
+        function renderGallery() {
+            const track = document.getElementById('gallery-track');
+            const dotsEl = document.getElementById('gallery-dots');
+            const counterEl = document.getElementById('gallery-counter');
+            const container = document.getElementById('gallery');
+
+            const photos = [bizData.photo_1, bizData.photo_2, bizData.photo_3].filter(Boolean);
+
+            if (photos.length === 0) {
+                track.innerHTML = '<div class="no-photos">📷 No photos available</div>';
+                counterEl.style.display = 'none';
+                dotsEl.style.display = 'none';
+                return;
+            }
+
+            photoUrls = photos.map(fid => `/api/photo?file_id=${encodeURIComponent(fid)}`);
+
+            // Slides
+            track.innerHTML = photoUrls.map((url, i) =>
+                `<div class="gallery-slide" data-index="${i}"><img src="${url}" alt="Photo ${i + 1}"></div>`
+            ).join('');
+
+            // Dots
+            if (photos.length > 1) {
+                dotsEl.innerHTML = photos.map((_, i) =>
+                    `<div class="gallery-dot ${i === 0 ? 'active' : ''}" data-index="${i}"></div>`
+                ).join('');
+            } else {
+                dotsEl.style.display = 'none';
+            }
+
+            // Counter
+            counterEl.textContent = `1 / ${photos.length}`;
+            if (photos.length <= 1) counterEl.style.display = 'none';
+
+            // Swipe support
+            let startX = 0, isDragging = false;
+            container.addEventListener('touchstart', (e) => {
+                startX = e.touches[0].clientX;
+                isDragging = true;
+            });
+
+            container.addEventListener('touchend', (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                const diff = startX - e.changedTouches[0].clientX;
+                if (Math.abs(diff) > 50) {
+                    if (diff > 0 && galleryIndex < photos.length - 1) {
+                        setGalleryIndex(galleryIndex + 1);
+                    } else if (diff < 0 && galleryIndex > 0) {
+                        setGalleryIndex(galleryIndex - 1);
+                    }
+                }
+            });
+
+            // Tap to fullscreen
+            track.addEventListener('click', (e) => {
+                const slide = e.target.closest('.gallery-slide');
+                if (slide) openFullscreen(parseInt(slide.dataset.index));
+            });
+        }
+
+        function setGalleryIndex(idx) {
+            galleryIndex = idx;
+            document.getElementById('gallery-track').style.transform = `translateX(-${idx * 100}%)`;
+            document.getElementById('gallery-counter').textContent = `${idx + 1} / ${photoUrls.length}`;
+
+            document.querySelectorAll('.gallery-dot').forEach((dot, i) => {
+                dot.classList.toggle('active', i === idx);
+            });
+        }
+
+        // --- Fullscreen Viewer ---
+        function openFullscreen(idx) {
+            const overlay = document.getElementById('fullscreen');
+            const img = document.getElementById('fs-image');
+            img.src = photoUrls[idx];
+            overlay.dataset.index = idx;
+            overlay.classList.add('active');
+        }
+
+        document.getElementById('fs-close').addEventListener('click', () => {
+            document.getElementById('fullscreen').classList.remove('active');
+        });
+
+        document.getElementById('fs-prev').addEventListener('click', () => {
+            const overlay = document.getElementById('fullscreen');
+            let idx = parseInt(overlay.dataset.index);
+            if (idx > 0) {
+                idx--;
+                overlay.dataset.index = idx;
+                document.getElementById('fs-image').src = photoUrls[idx];
+            }
+        });
+
+        document.getElementById('fs-next').addEventListener('click', () => {
+            const overlay = document.getElementById('fullscreen');
+            let idx = parseInt(overlay.dataset.index);
+            if (idx < photoUrls.length - 1) {
+                idx++;
+                overlay.dataset.index = idx;
+                document.getElementById('fs-image').src = photoUrls[idx];
+            }
+        });
+
+        // --- Contact Button ---
+        document.getElementById('contact-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('contact-btn');
+            if (btn.classList.contains('loading') || btn.classList.contains('out-of-coins')) return;
+
+            btn.classList.add('loading');
+            btn.innerHTML = '<div class="btn-spinner"></div> Connecting...';
+
+            try {
+                const resp = await fetch('/api/business/contact', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    },
+                    body: JSON.stringify({
+                        business_id: parseInt(businessId),
+                        customer_id: parseInt(customerId)
+                    })
+                });
+
+                const result = await resp.json();
+
+                if (!resp.ok) {
+                    throw new Error(result.detail || 'Failed to contact business');
+                }
+
+                // Open WhatsApp link
+                if (result.wa_link) {
+                    window.open(result.wa_link, '_blank');
+                }
+
+                // Update button state
+                btn.classList.remove('loading');
+                if (result.deducted) {
+                    btn.innerHTML = '✅ Connected! Tap again to reopen WhatsApp';
+                } else {
+                    btn.innerHTML = '💬 Contact on WhatsApp';
+                }
+                btn.classList.remove('loading');
+
+            } catch (err) {
+                btn.classList.remove('loading');
+                btn.innerHTML = '💬 Contact on WhatsApp';
+
+                if (err.message.includes('cooldown') || err.message.includes('Wait')) {
+                    // Cooldown but still show wa link - try fetching it
+                    WebApp.showAlert(err.message);
+                } else {
+                    WebApp.showAlert('Error: ' + err.message);
+                }
+            }
+        });
+
+        // Start
+        init();
+    </script>
+</body>
+
+</html>

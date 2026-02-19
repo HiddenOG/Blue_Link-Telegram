@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Business Catalog</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        /* Search Bar */
+        .search-container {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            padding: 8px 0 16px;
+            background: var(--bg-color);
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 14px 16px 14px 44px;
+            background: var(--secondary-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            color: var(--text-color);
+            font-family: inherit;
+            font-size: 1rem;
+            transition: all 0.2s;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'%3E%3C/circle%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'%3E%3C/line%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: 14px center;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--button-color);
+            background-color: rgba(255, 255, 255, 0.06);
+        }
+
+        .search-input::placeholder {
+            color: var(--hint-color);
+        }
+
+        /* Service Grid */
+        .service-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .service-card {
+            background: var(--secondary-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .service-card:active {
+            transform: scale(0.96);
+        }
+
+        .service-card:hover {
+            border-color: var(--button-color);
+            background: rgba(36, 139, 207, 0.08);
+        }
+
+        .service-emoji {
+            font-size: 2rem;
+            line-height: 1;
+        }
+
+        .service-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            word-break: break-word;
+        }
+
+        /* Location View */
+        .location-view {
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .location-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--button-color);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .location-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .location-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .location-item {
+            background: var(--secondary-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s;
+        }
+
+        .location-item:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .location-icon {
+            font-size: 1.3rem;
+        }
+
+        .location-name {
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--hint-color);
+        }
+
+        .empty-state .emoji {
+            font-size: 3rem;
+            margin-bottom: 12px;
+        }
+
+        /* Total Badge */
+        .total-badge {
+            text-align: center;
+            color: var(--hint-color);
+            font-size: 0.8rem;
+            margin-top: 20px;
+            padding-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loader" class="loader-container">
+        <div class="spinner"></div>
+        <p>Loading catalog...</p>
+    </div>
+
+    <div id="app" class="hidden">
+        <header>
+            <h1>📋 Business Catalog</h1>
+        </header>
+
+        <!-- Services View -->
+        <div id="services-view">
+            <div class="search-container">
+                <input type="text" id="search-input" class="search-input" placeholder="Search services...">
+            </div>
+            <div id="service-grid" class="service-grid"></div>
+            <div id="total-badge" class="total-badge"></div>
+        </div>
+
+        <!-- Locations View (hidden by default) -->
+        <div id="locations-view" class="hidden location-view">
+            <div class="location-header">
+                <button id="back-btn" class="back-btn">←</button>
+                <span id="location-title" class="location-title"></span>
+            </div>
+            <div id="location-list" class="location-list"></div>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        // Emoji map for common services
+        const EMOJI_MAP = {
+            'plumbing': '🔧', 'plumber': '🔧',
+            'catering': '🍽️', 'food': '🍽️', 'restaurant': '🍽️', 'cooking': '🍽️',
+            'cleaning': '🧹', 'laundry': '👔', 'dry cleaning': '👔',
+            'electrician': '⚡', 'electrical': '⚡',
+            'painting': '🎨', 'painter': '🎨',
+            'carpentry': '🪚', 'carpenter': '🪚', 'furniture': '🪑',
+            'mechanic': '🔩', 'auto repair': '🔩', 'car repair': '🔩',
+            'barber': '💈', 'barbing': '💈', 'haircut': '💈',
+            'salon': '💇', 'hair': '💇', 'hairdressing': '💇', 'hairstylist': '💇',
+            'makeup': '💄', 'beauty': '💄',
+            'photography': '📸', 'photographer': '📸',
+            'tailoring': '🧵', 'tailor': '🧵', 'fashion': '👗', 'fashion design': '👗',
+            'tech': '💻', 'software': '💻', 'web': '💻', 'developer': '💻', 'programming': '💻',
+            'graphics': '🎯', 'graphic design': '🎯', 'design': '🎯',
+            'tutoring': '📚', 'teaching': '📚', 'lesson': '📚', 'teacher': '📚',
+            'delivery': '🚚', 'logistics': '🚚', 'dispatch': '🚚',
+            'security': '🔒', 'guard': '🔒',
+            'event': '🎉', 'events': '🎉', 'party': '🎉', 'dj': '🎵',
+            'real estate': '🏠', 'property': '🏠', 'housing': '🏠', 'agent': '🏠',
+            'printing': '🖨️', 'print': '🖨️',
+            'phone repair': '📱', 'phone': '📱',
+            'fitness': '💪', 'gym': '💪', 'trainer': '💪',
+            'massage': '💆', 'spa': '💆',
+            'baking': '🍰', 'cake': '🍰', 'pastry': '🍰',
+            'farming': '🌾', 'agriculture': '🌾',
+            'welding': '🔥', 'welder': '🔥',
+            'driving': '🚗', 'driver': '🚗',
+            'medical': '⚕️', 'doctor': '⚕️', 'health': '⚕️', 'nurse': '⚕️',
+            'law': '⚖️', 'lawyer': '⚖️', 'legal': '⚖️',
+            'accounting': '📊', 'finance': '📊'
+        };
+
+        function getServiceEmoji(serviceName) {
+            const lower = serviceName.toLowerCase();
+            // Exact match
+            if (EMOJI_MAP[lower]) return EMOJI_MAP[lower];
+            // Partial match
+            for (const [key, emoji] of Object.entries(EMOJI_MAP)) {
+                if (lower.includes(key) || key.includes(lower)) return emoji;
+            }
+            return '🏢';
+        }
+
+        let allServices = [];
+
+        // Load catalog
+        async function loadCatalog() {
+            try {
+                const res = await fetch('/api/catalog');
+                const data = await res.json();
+
+                allServices = data.services;
+                renderServices(allServices);
+                document.getElementById('total-badge').textContent =
+                    `${data.total} businesses · ${allServices.length} services`;
+
+                document.getElementById('loader').classList.add('hidden');
+                document.getElementById('app').classList.remove('hidden');
+            } catch (e) {
+                document.getElementById('loader').querySelector('p').textContent =
+                    'Failed to load catalog';
+            }
+        }
+
+        function renderServices(services) {
+            const grid = document.getElementById('service-grid');
+            grid.innerHTML = '';
+
+            if (services.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state" style="grid-column: span 2;">
+                        <div class="emoji">🔍</div>
+                        <p>No services found</p>
+                    </div>
+                `;
+                return;
+            }
+
+            services.forEach(svc => {
+                const card = document.createElement('div');
+                card.className = 'service-card';
+                card.innerHTML = `
+                    <span class="service-emoji">${getServiceEmoji(svc.name)}</span>
+                    <span class="service-name">${svc.name}</span>
+                `;
+                card.addEventListener('click', () => showLocations(svc.name));
+                grid.appendChild(card);
+            });
+        }
+
+        // Show locations for a service
+        async function showLocations(serviceName) {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+
+            document.getElementById('services-view').classList.add('hidden');
+            document.getElementById('locations-view').classList.remove('hidden');
+            document.getElementById('location-title').textContent = serviceName;
+
+            const list = document.getElementById('location-list');
+            list.innerHTML = `<div class="loader-container" style="height: auto; padding: 40px;">
+                <div class="spinner"></div><p>Loading locations...</p>
+            </div>`;
+
+            try {
+                const res = await fetch(`/api/catalog?service=${encodeURIComponent(serviceName)}`);
+                const data = await res.json();
+
+                list.innerHTML = '';
+
+                if (data.locations.length === 0) {
+                    list.innerHTML = `
+                        <div class="empty-state">
+                            <div class="emoji">📍</div>
+                            <p>No locations listed yet</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                data.locations.forEach(loc => {
+                    const item = document.createElement('div');
+                    item.className = 'location-item';
+                    item.innerHTML = `
+                        <span class="location-icon">📍</span>
+                        <span class="location-name">${loc}</span>
+                    `;
+                    list.appendChild(item);
+                });
+            } catch (e) {
+                list.innerHTML = `<div class="empty-state"><p>Failed to load locations</p></div>`;
+            }
+        }
+
+        // Back button
+        document.getElementById('back-btn').addEventListener('click', () => {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            document.getElementById('locations-view').classList.add('hidden');
+            document.getElementById('services-view').classList.remove('hidden');
+        });
+
+        // Search
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            if (!query) {
+                renderServices(allServices);
+                return;
+            }
+            const filtered = allServices.filter(s =>
+                s.name.toLowerCase().includes(query)
+            );
+            renderServices(filtered);
+        });
+
+        // Init
+        loadCatalog();
+    </script>
+</body>
+
+</html>
