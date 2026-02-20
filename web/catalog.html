@@ -538,7 +538,6 @@
                 card.innerHTML = `
                     <span class="service-emoji">${getServiceEmoji(svc.name)}</span>
                     <span class="service-name">${svc.name}</span>
-                    <span class="service-count">${svc.count} business${svc.count !== 1 ? 'es' : ''}</span>
                 `;
                 card.addEventListener('click', () => showLocations(svc.name));
                 grid.appendChild(card);
@@ -758,3 +757,4 @@
 </body>
 
 </html>
+
