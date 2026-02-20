@@ -99,6 +99,12 @@ async function init() {
         if (!response.ok) throw new Error('Failed to load dashboard data');
 
         currentData = await response.json();
+
+        // Update greeting with API user_name if WebApp didn't provide one
+        if (!userDisplay && currentData.user_name) {
+            welcomeMsg.innerText = `Hi, ${currentData.user_name}!`;
+        }
+
         renderDashboard(currentData);
 
         loader.classList.add('hidden');
@@ -458,3 +464,4 @@ function triggerRegistration() {
     WebApp.sendData("trigger_register_from_dashboard");
     WebApp.close();
 }
+
