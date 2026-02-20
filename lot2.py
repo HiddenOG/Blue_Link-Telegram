@@ -29,7 +29,7 @@ import hashlib
 
 import warnings
 warnings.filterwarnings("ignore")
-
+warnings.filterwarnings("ignore", category=FutureWarning, module="google.generativeai")
 # numpy removed — was unused
 import threading
 import uuid
@@ -4412,3 +4412,4 @@ def main():
 if __name__ == "__main__":
     logging.info("🚀 Bot is starting...")
     main()
+
