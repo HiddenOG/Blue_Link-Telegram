@@ -7,7 +7,7 @@
     <title>Business Catalog</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         /* Search Bar */
         .search-container {
@@ -84,24 +84,13 @@
             word-break: break-word;
         }
 
-        /* Location View */
-        .location-view {
-            animation: fadeIn 0.2s ease;
+        .service-count {
+            font-size: 0.72rem;
+            color: var(--hint-color);
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .location-header {
+        /* Shared View Styles */
+        .view-header {
             display: flex;
             align-items: center;
             gap: 12px;
@@ -117,15 +106,34 @@
             padding: 4px 8px;
             border-radius: 8px;
             transition: background 0.2s;
+            flex-shrink: 0;
         }
 
         .back-btn:hover {
             background: rgba(255, 255, 255, 0.05);
         }
 
-        .location-title {
+        .view-title {
             font-size: 1.1rem;
             font-weight: 600;
+        }
+
+        /* Location View */
+        .location-view,
+        .businesses-view {
+            animation: fadeIn 0.25s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .location-list {
@@ -142,20 +150,172 @@
             display: flex;
             align-items: center;
             gap: 12px;
+            cursor: pointer;
             transition: all 0.2s;
+        }
+
+        .location-item:active {
+            transform: scale(0.98);
         }
 
         .location-item:hover {
             border-color: rgba(255, 255, 255, 0.15);
+            background: rgba(36, 139, 207, 0.06);
         }
 
         .location-icon {
             font-size: 1.3rem;
         }
 
+        .location-info {
+            flex: 1;
+        }
+
         .location-name {
             font-weight: 500;
             font-size: 0.95rem;
+        }
+
+        .location-count {
+            font-size: 0.75rem;
+            color: var(--hint-color);
+            margin-top: 2px;
+        }
+
+        .location-arrow {
+            color: var(--hint-color);
+            font-size: 1.1rem;
+        }
+
+        /* Business List (WhatsApp-style) */
+        .biz-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .biz-item {
+            background: var(--secondary-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .biz-item:active {
+            transform: scale(0.98);
+        }
+
+        .biz-item:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            background: rgba(36, 139, 207, 0.06);
+        }
+
+        .biz-item.boosted {
+            border-color: rgba(255, 215, 0, 0.3);
+            background: rgba(255, 215, 0, 0.04);
+        }
+
+        .biz-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+            color: #fff;
+        }
+
+        .biz-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .biz-name-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .biz-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .biz-boost-badge {
+            font-size: 0.7rem;
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #000;
+            padding: 2px 7px;
+            border-radius: 8px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .biz-subtitle {
+            font-size: 0.8rem;
+            color: var(--hint-color);
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .biz-arrow {
+            color: var(--hint-color);
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        /* Suggestion Banner */
+        .suggestion-banner {
+            background: linear-gradient(135deg, rgba(36, 139, 207, 0.15), rgba(100, 60, 200, 0.12));
+            border: 1px solid rgba(36, 139, 207, 0.3);
+            border-radius: 14px;
+            padding: 14px 18px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .suggestion-banner:hover {
+            background: linear-gradient(135deg, rgba(36, 139, 207, 0.22), rgba(100, 60, 200, 0.18));
+        }
+
+        .suggestion-icon {
+            font-size: 1.3rem;
+            flex-shrink: 0;
+        }
+
+        .suggestion-text {
+            font-size: 0.88rem;
+            color: var(--text-color);
+            flex: 1;
+        }
+
+        .suggestion-text strong {
+            color: var(--button-color);
+        }
+
+        /* Search Results */
+        .search-results-header {
+            font-size: 0.85rem;
+            color: var(--hint-color);
+            margin-bottom: 12px;
+            padding-left: 4px;
         }
 
         /* Empty State */
@@ -178,6 +338,35 @@
             margin-top: 20px;
             padding-bottom: 20px;
         }
+
+        /* Mini loader */
+        .mini-loader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 0;
+            gap: 12px;
+        }
+
+        .mini-loader .spinner {
+            width: 28px;
+            height: 28px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--button-color, #248bcf);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .mini-loader p {
+            font-size: 0.85rem;
+            color: var(--hint-color);
+        }
     </style>
 </head>
 
@@ -195,19 +384,34 @@
         <!-- Services View -->
         <div id="services-view">
             <div class="search-container">
-                <input type="text" id="search-input" class="search-input" placeholder="Search services...">
+                <input type="text" id="search-input" class="search-input"
+                    placeholder="Search services or businesses...">
+            </div>
+            <div id="suggestion-area"></div>
+            <div id="search-results" class="hidden">
+                <div id="search-results-header" class="search-results-header"></div>
+                <div id="search-results-list" class="biz-list"></div>
             </div>
             <div id="service-grid" class="service-grid"></div>
             <div id="total-badge" class="total-badge"></div>
         </div>
 
-        <!-- Locations View (hidden by default) -->
+        <!-- Locations View -->
         <div id="locations-view" class="hidden location-view">
-            <div class="location-header">
-                <button id="back-btn" class="back-btn">←</button>
-                <span id="location-title" class="location-title"></span>
+            <div class="view-header">
+                <button id="loc-back-btn" class="back-btn">←</button>
+                <span id="location-title" class="view-title"></span>
             </div>
             <div id="location-list" class="location-list"></div>
+        </div>
+
+        <!-- Businesses View -->
+        <div id="businesses-view" class="hidden businesses-view">
+            <div class="view-header">
+                <button id="biz-back-btn" class="back-btn">←</button>
+                <span id="biz-title" class="view-title"></span>
+            </div>
+            <div id="biz-list" class="biz-list"></div>
         </div>
     </div>
 
@@ -249,23 +453,54 @@
             'accounting': '📊', 'finance': '📊'
         };
 
+        // Avatar background colors
+        const AVATAR_COLORS = [
+            '#E17055', '#00B894', '#6C5CE7', '#FDCB6E',
+            '#0984E3', '#D63031', '#00CEC9', '#E84393',
+            '#2D3436', '#636E72', '#A29BFE', '#55EFC4'
+        ];
+
         function getServiceEmoji(serviceName) {
             const lower = serviceName.toLowerCase();
-            // Exact match
             if (EMOJI_MAP[lower]) return EMOJI_MAP[lower];
-            // Partial match
             for (const [key, emoji] of Object.entries(EMOJI_MAP)) {
                 if (lower.includes(key) || key.includes(lower)) return emoji;
             }
             return '🏢';
         }
 
-        let allServices = [];
+        function getAvatarColor(name) {
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+                hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+        }
 
-        // Load catalog
+        function getAvatarInitial(name) {
+            return name.charAt(0).toUpperCase();
+        }
+
+        let allServices = [];
+        let currentService = '';
+        let currentLocation = '';
+        let searchTimeout = null;
+
+        // ==================== VIEWS ====================
+
+        function showView(viewId) {
+            ['services-view', 'locations-view', 'businesses-view'].forEach(id => {
+                document.getElementById(id).classList.toggle('hidden', id !== viewId);
+            });
+        }
+
+        // ==================== LOAD CATALOG ====================
+
         async function loadCatalog() {
             try {
-                const res = await fetch('/api/catalog');
+                const res = await fetch('/api/catalog', {
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
                 const data = await res.json();
 
                 allServices = data.services;
@@ -280,6 +515,8 @@
                     'Failed to load catalog';
             }
         }
+
+        // ==================== SERVICES ====================
 
         function renderServices(services) {
             const grid = document.getElementById('service-grid');
@@ -301,29 +538,30 @@
                 card.innerHTML = `
                     <span class="service-emoji">${getServiceEmoji(svc.name)}</span>
                     <span class="service-name">${svc.name}</span>
+                    <span class="service-count">${svc.count} business${svc.count !== 1 ? 'es' : ''}</span>
                 `;
                 card.addEventListener('click', () => showLocations(svc.name));
                 grid.appendChild(card);
             });
         }
 
-        // Show locations for a service
+        // ==================== LOCATIONS ====================
+
         async function showLocations(serviceName) {
             if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            currentService = serviceName;
 
-            document.getElementById('services-view').classList.add('hidden');
-            document.getElementById('locations-view').classList.remove('hidden');
-            document.getElementById('location-title').textContent = serviceName;
+            showView('locations-view');
+            document.getElementById('location-title').textContent = `${getServiceEmoji(serviceName)} ${serviceName}`;
 
             const list = document.getElementById('location-list');
-            list.innerHTML = `<div class="loader-container" style="height: auto; padding: 40px;">
-                <div class="spinner"></div><p>Loading locations...</p>
-            </div>`;
+            list.innerHTML = `<div class="mini-loader"><div class="spinner"></div><p>Loading locations...</p></div>`;
 
             try {
-                const res = await fetch(`/api/catalog?service=${encodeURIComponent(serviceName)}`);
+                const res = await fetch(`/api/catalog?service=${encodeURIComponent(serviceName)}`, {
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
                 const data = await res.json();
-
                 list.innerHTML = '';
 
                 if (data.locations.length === 0) {
@@ -341,8 +579,12 @@
                     item.className = 'location-item';
                     item.innerHTML = `
                         <span class="location-icon">📍</span>
-                        <span class="location-name">${loc}</span>
+                        <div class="location-info">
+                            <div class="location-name">${loc}</div>
+                        </div>
+                        <span class="location-arrow">›</span>
                     `;
+                    item.addEventListener('click', () => showBusinesses(serviceName, loc));
                     list.appendChild(item);
                 });
             } catch (e) {
@@ -350,24 +592,164 @@
             }
         }
 
-        // Back button
-        document.getElementById('back-btn').addEventListener('click', () => {
-            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-            document.getElementById('locations-view').classList.add('hidden');
-            document.getElementById('services-view').classList.remove('hidden');
-        });
+        // ==================== BUSINESSES ====================
 
-        // Search
-        document.getElementById('search-input').addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase().trim();
+        async function showBusinesses(serviceName, locationName) {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            currentLocation = locationName;
+
+            showView('businesses-view');
+            document.getElementById('biz-title').textContent =
+                `${getServiceEmoji(serviceName)} ${serviceName} in ${locationName}`;
+
+            const list = document.getElementById('biz-list');
+            list.innerHTML = `<div class="mini-loader"><div class="spinner"></div><p>Loading businesses...</p></div>`;
+
+            try {
+                const res = await fetch(
+                    `/api/catalog?service=${encodeURIComponent(serviceName)}&location=${encodeURIComponent(locationName)}`,
+                    { headers: { 'ngrok-skip-browser-warning': 'true' } }
+                );
+                const data = await res.json();
+                renderBusinessList(list, data.businesses);
+            } catch (e) {
+                list.innerHTML = `<div class="empty-state"><p>Failed to load businesses</p></div>`;
+            }
+        }
+
+        function renderBusinessList(container, businesses) {
+            container.innerHTML = '';
+
+            if (businesses.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="emoji">🏢</div>
+                        <p>No businesses found</p>
+                    </div>
+                `;
+                return;
+            }
+
+            businesses.forEach(biz => {
+                const item = document.createElement('div');
+                item.className = `biz-item${biz.is_boosted ? ' boosted' : ''}`;
+                const color = getAvatarColor(biz.business_name);
+                const initial = getAvatarInitial(biz.business_name);
+                const emoji = getServiceEmoji(biz.service);
+
+                item.innerHTML = `
+                    <div class="biz-avatar" style="background:${color}">
+                        ${initial}
+                    </div>
+                    <div class="biz-info">
+                        <div class="biz-name-row">
+                            <span class="biz-name">${biz.business_name}</span>
+                            ${biz.is_boosted ? '<span class="biz-boost-badge">⭐ Featured</span>' : ''}
+                        </div>
+                        <div class="biz-subtitle">${emoji} ${biz.service}${biz.location ? ' · 📍 ' + biz.location : ''}</div>
+                    </div>
+                    <span class="biz-arrow">›</span>
+                `;
+                item.addEventListener('click', () => openBusiness(biz.id));
+                container.appendChild(item);
+            });
+        }
+
+        function openBusiness(bizId) {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+            // Get uid from URL if available
+            const urlParams = new URLSearchParams(window.location.search);
+            const uid = urlParams.get('uid') || '';
+            const user = tg.initDataUnsafe.user;
+            const customerId = (user && user.id) ? user.id : uid;
+            window.location.href = `business.html?id=${bizId}&uid=${customerId}`;
+        }
+
+        // ==================== HYBRID SEARCH ====================
+
+        async function performSearch(query) {
+            const grid = document.getElementById('service-grid');
+            const totalBadge = document.getElementById('total-badge');
+            const suggestionArea = document.getElementById('suggestion-area');
+            const searchResults = document.getElementById('search-results');
+            const searchHeader = document.getElementById('search-results-header');
+            const searchList = document.getElementById('search-results-list');
+
             if (!query) {
+                // Reset to default
+                suggestionArea.innerHTML = '';
+                searchResults.classList.add('hidden');
+                grid.classList.remove('hidden');
+                totalBadge.classList.remove('hidden');
                 renderServices(allServices);
                 return;
             }
+
+            // Local filter of services first (instant)
             const filtered = allServices.filter(s =>
-                s.name.toLowerCase().includes(query)
+                s.name.toLowerCase().includes(query.toLowerCase())
             );
             renderServices(filtered);
+
+            // Then do API search for businesses + suggestions
+            try {
+                const res = await fetch(`/api/catalog/search?q=${encodeURIComponent(query)}`, {
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
+                const data = await res.json();
+
+                // Show suggestion banner
+                suggestionArea.innerHTML = '';
+                if (data.suggestions && data.suggestions.length > 0) {
+                    data.suggestions.forEach(sug => {
+                        const banner = document.createElement('div');
+                        banner.className = 'suggestion-banner';
+                        banner.innerHTML = `
+                            <span class="suggestion-icon">💡</span>
+                            <span class="suggestion-text">Did you mean <strong>${sug}</strong>?</span>
+                        `;
+                        banner.addEventListener('click', () => {
+                            document.getElementById('search-input').value = sug;
+                            performSearch(sug);
+                        });
+                        suggestionArea.appendChild(banner);
+                    });
+                }
+
+                // Show business results
+                if (data.businesses && data.businesses.length > 0) {
+                    grid.classList.add('hidden');
+                    totalBadge.classList.add('hidden');
+                    searchResults.classList.remove('hidden');
+                    searchHeader.textContent = `${data.total} business${data.total !== 1 ? 'es' : ''} found`;
+                    renderBusinessList(searchList, data.businesses);
+                } else if (filtered.length === 0) {
+                    searchResults.classList.add('hidden');
+                    grid.classList.remove('hidden');
+                }
+            } catch (e) {
+                console.error('Search error:', e);
+            }
+        }
+
+        // ==================== EVENT LISTENERS ====================
+
+        // Search with debounce
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            const query = e.target.value.trim();
+            searchTimeout = setTimeout(() => performSearch(query), 300);
+        });
+
+        // Back buttons
+        document.getElementById('loc-back-btn').addEventListener('click', () => {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            showView('services-view');
+        });
+
+        document.getElementById('biz-back-btn').addEventListener('click', () => {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            showView('locations-view');
         });
 
         // Init
