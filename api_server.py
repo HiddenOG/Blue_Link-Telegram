@@ -141,11 +141,17 @@ async def get_dashboard_data(initData: str = Query(None), user_id: int = Query(N
     if not valid_user_id and user_id:
         # uid is set by our bot code in get_main_keyboard(), safe for read-only endpoint
         valid_user_id = user_id
-        # Try to get actual name from user's businesses
+        # Try to get actual name from database
         try:
-            biz_list = get_user_businesses(valid_user_id)
-            if biz_list and biz_list[0].get('full_name'):
-                user_name = biz_list[0]['full_name'].split()[0]  # First name only
+            name_resp = await asyncio.to_thread(
+                lambda: supabase.table('businesses')
+                    .select('full_name')
+                    .eq('telegram_id', str(valid_user_id))
+                    .limit(1)
+                    .execute()
+            )
+            if name_resp.data and name_resp.data[0].get('full_name'):
+                user_name = name_resp.data[0]['full_name'].split()[0]
             else:
                 user_name = "User"
         except:
@@ -1164,5 +1170,4 @@ if __name__ == "__main__":
     import uvicorn
     # Local run for testing
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
 
