@@ -141,8 +141,16 @@ async def get_dashboard_data(initData: str = Query(None), user_id: int = Query(N
     if not valid_user_id and user_id:
         # uid is set by our bot code in get_main_keyboard(), safe for read-only endpoint
         valid_user_id = user_id
-        user_name = "User"
-        logging.info(f"✅ Dashboard: Using uid fallback: {valid_user_id}")
+        # Try to get actual name from user's businesses
+        try:
+            biz_list = get_user_businesses(valid_user_id)
+            if biz_list and biz_list[0].get('full_name'):
+                user_name = biz_list[0]['full_name'].split()[0]  # First name only
+            else:
+                user_name = "User"
+        except:
+            user_name = "User"
+        logging.info(f"✅ Dashboard: Using uid fallback: {valid_user_id}, name: {user_name}")
         
     if not valid_user_id:
         return {"businesses": [], "coins": 0, "error": "Auth failed"}
@@ -196,7 +204,19 @@ async def get_dashboard_data(initData: str = Query(None), user_id: int = Query(N
                         .execute()
                 )
                 req_count = leads_resp.count if leads_resp.count else (len(leads_resp.data) if leads_resp.data else 0)
-                weekly_stats.append({"date": day_name, "requests": req_count, "clicks": 0})
+                
+                # Also get clicks for this day
+                clicks_resp = await asyncio.to_thread(
+                    lambda ds=day_start, de=day_end: supabase.table('link_clicks')
+                        .select('id', count='exact')
+                        .eq('business_id', biz_id)
+                        .gte('click_timestamp', ds)
+                        .lte('click_timestamp', de)
+                        .execute()
+                )
+                click_count = clicks_resp.count if clicks_resp.count else (len(clicks_resp.data) if clicks_resp.data else 0)
+                
+                weekly_stats.append({"date": day_name, "requests": req_count, "clicks": click_count})
         except Exception as stats_err:
             logging.warning(f"Could not load weekly stats for biz {biz_id}: {stats_err}")
             for day_name in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']:
@@ -1144,4 +1164,5 @@ if __name__ == "__main__":
     import uvicorn
     # Local run for testing
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
