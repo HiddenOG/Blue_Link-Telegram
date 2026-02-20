@@ -98,6 +98,30 @@
             transform: scale(1.3);
         }
 
+        .page-back-btn {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.6);
+            border: none;
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+            transition: all 0.2s;
+        }
+
+        .page-back-btn:active {
+            transform: scale(0.9);
+            background: rgba(0, 0, 0, 0.8);
+        }
+
         .gallery-counter {
             position: absolute;
             top: 12px;
@@ -350,6 +374,7 @@
     <div id="profile" style="display:none;">
         <!-- Photo Gallery -->
         <div class="gallery-container" id="gallery">
+            <button class="page-back-btn" id="page-back-btn">←</button>
             <div class="gallery-track" id="gallery-track"></div>
             <div class="gallery-dots" id="gallery-dots"></div>
             <div class="gallery-counter" id="gallery-counter"></div>
@@ -612,6 +637,16 @@
                 } else {
                     WebApp.showAlert('Error: ' + err.message);
                 }
+            }
+        });
+
+        // Back button
+        document.getElementById('page-back-btn').addEventListener('click', () => {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                // Fallback to catalog if no history
+                window.location.href = 'catalog.html';
             }
         });
 
