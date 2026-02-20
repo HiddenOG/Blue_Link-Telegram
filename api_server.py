@@ -116,15 +116,10 @@ async def get_dashboard_data(initData: str = Query(None), user_id: int = Query(N
                 logging.warning(f"⚠️ Dashboard: Could not parse user from initData: {parse_err}")
         
     if not valid_user_id and user_id:
-        if os.getenv("DASHBOARD_SKIP_AUTH") == "true" or had_init_data:
-            # Allow uid fallback if:
-            # 1. DASHBOARD_SKIP_AUTH is true (dev mode), OR
-            # 2. initData was present (user is in WebApp context, uid was set by our bot)
-            valid_user_id = user_id
-            user_name = "User"
-            logging.info(f"✅ Dashboard: Using uid fallback: {valid_user_id} (had_initData={had_init_data})")
-        else:
-            logging.warning(f"⚠️ Dashboard: Rejected unauthenticated fallback user_id (no initData)")
+        # uid is set by our bot code in get_main_keyboard(), safe for read-only endpoint
+        valid_user_id = user_id
+        user_name = "User"
+        logging.info(f"✅ Dashboard: Using uid fallback: {valid_user_id}")
         
     if not valid_user_id:
         return {"businesses": [], "coins": 0, "error": "Auth failed"}
@@ -844,15 +839,12 @@ async def get_boost_businesses(request: Request):
             except:
                 pass
     
-    # Fallback to uid param if initData was present (WebApp context) or skip auth is on
+    # uid is set by our bot code in pay.html, safe for read-only endpoint
     if not valid_user_id and uid_param:
-        if os.getenv("DASHBOARD_SKIP_AUTH") == "true" or had_init_data:
-            valid_user_id = int(uid_param)
-        else:
-            raise HTTPException(status_code=401, detail="Authentication required")
+        valid_user_id = int(uid_param)
     
     if not valid_user_id:
-        raise HTTPException(status_code=401, detail="Authentication required")
+        raise HTTPException(status_code=401, detail="Missing user identification")
     
     try:
         result = await asyncio.to_thread(
@@ -1119,3 +1111,5 @@ if __name__ == "__main__":
     import uvicorn
     # Local run for testing
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
