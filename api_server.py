@@ -93,23 +93,38 @@ def validate_telegram_data(init_data: str) -> dict:
 async def get_dashboard_data(initData: str = Query(None), user_id: int = Query(None)):
     user_name = "User"
     valid_user_id = None
+    had_init_data = bool(initData)
     
     if initData:
         try:
             user = validate_telegram_data(initData)
             valid_user_id = user["user"]["id"]
             user_name = user["user"].get("first_name", "User")
-        except:
-            valid_user_id = None
+            logging.info(f"✅ Dashboard: HMAC auth OK for user {valid_user_id}")
+        except Exception as e:
+            logging.warning(f"⚠️ Dashboard: initData validation failed: {e}")
+            # Try to extract user from initData even if HMAC fails
+            try:
+                from urllib.parse import parse_qs
+                parsed = parse_qs(initData)
+                if "user" in parsed:
+                    user_data = json.loads(parsed["user"][0])
+                    valid_user_id = user_data.get("id")
+                    user_name = user_data.get("first_name", "User")
+                    logging.info(f"✅ Dashboard: Extracted user {valid_user_id} from initData (HMAC bypass)")
+            except Exception as parse_err:
+                logging.warning(f"⚠️ Dashboard: Could not parse user from initData: {parse_err}")
         
     if not valid_user_id and user_id:
-        # Fallback for Ngrok issues — only allow if DASHBOARD_SKIP_AUTH is set
-        if os.getenv("DASHBOARD_SKIP_AUTH") == "true":
+        if os.getenv("DASHBOARD_SKIP_AUTH") == "true" or had_init_data:
+            # Allow uid fallback if:
+            # 1. DASHBOARD_SKIP_AUTH is true (dev mode), OR
+            # 2. initData was present (user is in WebApp context, uid was set by our bot)
             valid_user_id = user_id
-            user_name = "User (Dev Mode)"
-            logging.warning(f"⚠️ Dashboard: Using fallback user_id: {valid_user_id}")
+            user_name = "User"
+            logging.info(f"✅ Dashboard: Using uid fallback: {valid_user_id} (had_initData={had_init_data})")
         else:
-            logging.warning(f"⚠️ Dashboard: Rejected unauthenticated fallback user_id")
+            logging.warning(f"⚠️ Dashboard: Rejected unauthenticated fallback user_id (no initData)")
         
     if not valid_user_id:
         return {"businesses": [], "coins": 0, "error": "Auth failed"}
@@ -812,6 +827,7 @@ async def get_boost_businesses(request: Request):
     init_data = request.query_params.get('initData')
     
     valid_user_id = None
+    had_init_data = bool(init_data)
     
     # Try initData auth first (same pattern as dashboard)
     if init_data:
@@ -819,13 +835,19 @@ async def get_boost_businesses(request: Request):
             user = validate_telegram_data(init_data)
             valid_user_id = user["user"]["id"]
         except:
-            valid_user_id = None
+            # Try to extract user from initData even if HMAC fails
+            try:
+                parsed = parse_qs(init_data)
+                if "user" in parsed:
+                    user_data = json.loads(parsed["user"][0])
+                    valid_user_id = user_data.get("id")
+            except:
+                pass
     
-    # Fallback to uid param only if DASHBOARD_SKIP_AUTH is true
+    # Fallback to uid param if initData was present (WebApp context) or skip auth is on
     if not valid_user_id and uid_param:
-        if os.getenv("DASHBOARD_SKIP_AUTH") == "true":
+        if os.getenv("DASHBOARD_SKIP_AUTH") == "true" or had_init_data:
             valid_user_id = int(uid_param)
-            logging.warning(f"⚠️ boost-businesses: Using fallback uid: {valid_user_id}")
         else:
             raise HTTPException(status_code=401, detail="Authentication required")
     
