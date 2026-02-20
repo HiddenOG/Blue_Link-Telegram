@@ -595,16 +595,44 @@ async def upload_photo(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/catalog")
-async def get_catalog(service: Optional[str] = Query(None)):
+async def get_catalog(service: Optional[str] = Query(None), location: Optional[str] = Query(None)):
     """
     Public catalog endpoint.
     - No params: returns list of unique services
     - ?service=X: returns unique locations for that service
+    - ?service=X&location=Y: returns businesses in that service+location
     """
     from bot_state import get_cached_businesses, get_row_value
     businesses = get_cached_businesses()
     
-    if service:
+    if service and location:
+        # Return businesses matching service + location
+        results = []
+        for biz in businesses:
+            biz_service = get_row_value(biz, 'Business Services') or ''
+            biz_location = get_row_value(biz, 'Business Location') or ''
+            if (biz_service.strip().lower() == service.strip().lower() and 
+                biz_location.strip().lower() == location.strip().lower()):
+                is_boosted = bool(biz.get('is_ad_boosted'))
+                results.append({
+                    "id": biz.get('id'),
+                    "business_name": biz.get('business_name', 'Unknown'),
+                    "service": biz_service.strip(),
+                    "location": biz_location.strip(),
+                    "description": (biz.get('business_description') or '')[:100],
+                    "is_boosted": is_boosted,
+                    "has_photos": bool(biz.get('photo_1'))
+                })
+        # Boosted businesses first
+        results.sort(key=lambda x: (not x['is_boosted'], x['business_name'].lower()))
+        return {
+            "service": service,
+            "location": location,
+            "businesses": results,
+            "total": len(results)
+        }
+    
+    elif service:
         # Return unique locations for this service
         locations = set()
         for biz in businesses:
@@ -631,6 +659,141 @@ async def get_catalog(service: Optional[str] = Query(None)):
             "services": sorted(list(services.values()), key=lambda x: x["name"].lower()),
             "total": len(businesses)
         }
+
+# --- Synonym Map for Hybrid Search ---
+SYNONYM_MAP = {
+    "tailor": ["fashion designer", "seamstress", "clothing alteration", "fashion design"],
+    "fashion designer": ["tailor", "seamstress", "fashion design", "clothing"],
+    "seamstress": ["tailor", "fashion designer"],
+    "barber": ["hair stylist", "haircut", "grooming", "barbing"],
+    "hair stylist": ["barber", "salon", "hairdressing"],
+    "salon": ["hair stylist", "hairdressing", "beauty", "makeup"],
+    "mechanic": ["auto repair", "car repair", "car service", "vehicle maintenance"],
+    "auto repair": ["mechanic", "car repair"],
+    "plumber": ["plumbing", "pipe fitting", "drainage", "water repair"],
+    "plumbing": ["plumber", "pipe fitting"],
+    "electrician": ["electrical", "wiring", "electrical repair"],
+    "electrical": ["electrician", "wiring"],
+    "painter": ["painting", "house painting", "decorator"],
+    "carpenter": ["carpentry", "furniture", "woodwork"],
+    "photographer": ["photography", "videography", "photo studio"],
+    "photography": ["photographer", "videography"],
+    "catering": ["food", "restaurant", "cooking", "chef"],
+    "cleaning": ["laundry", "dry cleaning", "janitor", "housekeeping"],
+    "laundry": ["cleaning", "dry cleaning", "ironing"],
+    "delivery": ["logistics", "dispatch", "courier", "shipping"],
+    "logistics": ["delivery", "dispatch", "courier"],
+    "security": ["guard", "bodyguard", "surveillance"],
+    "dj": ["event", "music", "entertainment", "party"],
+    "event": ["events", "party", "dj", "entertainment", "decoration"],
+    "baking": ["cake", "pastry", "confectionery", "bakery"],
+    "cake": ["baking", "pastry", "confectionery"],
+    "fitness": ["gym", "trainer", "exercise", "workout"],
+    "massage": ["spa", "wellness", "relaxation"],
+    "driving": ["driver", "chauffeur", "ride", "taxi"],
+    "doctor": ["medical", "health", "clinic", "hospital", "nurse"],
+    "nurse": ["medical", "health", "doctor"],
+    "lawyer": ["legal", "law", "attorney", "solicitor"],
+    "accounting": ["finance", "bookkeeping", "tax"],
+    "real estate": ["property", "housing", "agent", "realtor"],
+    "graphic design": ["graphics", "design", "branding", "logo"],
+    "web developer": ["software", "programming", "tech", "website"],
+    "software": ["web developer", "programming", "tech", "developer"],
+    "tutoring": ["teaching", "lesson", "teacher", "tutor", "education"],
+    "welding": ["welder", "metal work", "fabrication"],
+    "farming": ["agriculture", "agribusiness"],
+    "printing": ["print", "signage", "banner"],
+    "phone repair": ["phone", "gadget repair", "screen repair"],
+    "makeup": ["beauty", "cosmetics", "salon"],
+}
+
+def fuzzy_match(query, candidates, threshold=0.6):
+    """Simple fuzzy matching using difflib"""
+    from difflib import SequenceMatcher
+    matches = []
+    query_lower = query.lower()
+    for candidate in candidates:
+        candidate_lower = candidate.lower()
+        # Direct substring match
+        if query_lower in candidate_lower or candidate_lower in query_lower:
+            matches.append((candidate, 1.0))
+            continue
+        # Sequence similarity
+        ratio = SequenceMatcher(None, query_lower, candidate_lower).ratio()
+        if ratio >= threshold:
+            matches.append((candidate, ratio))
+    matches.sort(key=lambda x: x[1], reverse=True)
+    return matches
+
+@app.get("/api/catalog/search")
+async def search_catalog(q: str = Query(..., min_length=1)):
+    """
+    Hybrid search: synonym map + fuzzy matching.
+    Returns matching businesses + suggestions for related services.
+    """
+    from bot_state import get_cached_businesses, get_row_value
+    businesses = get_cached_businesses()
+    query = q.strip().lower()
+    
+    # 1. Get all unique service names
+    all_services = set()
+    for biz in businesses:
+        svc = (get_row_value(biz, 'Business Services') or '').strip()
+        if svc:
+            all_services.add(svc)
+    
+    # 2. Find matching services (fuzzy + synonym)
+    matched_services = set()
+    suggestions = []
+    
+    # Direct/fuzzy matches against actual service names
+    fuzzy_results = fuzzy_match(query, list(all_services), threshold=0.5)
+    for svc_name, score in fuzzy_results:
+        matched_services.add(svc_name.lower())
+    
+    # Synonym suggestions
+    synonyms = SYNONYM_MAP.get(query, [])
+    # Also check if query is a value in any synonym list
+    for key, values in SYNONYM_MAP.items():
+        if query in [v.lower() for v in values]:
+            synonyms.append(key)
+    
+    # Find which synonyms actually have businesses
+    for syn in synonyms:
+        syn_lower = syn.lower()
+        for svc in all_services:
+            if syn_lower == svc.lower() or syn_lower in svc.lower():
+                if svc.lower() not in matched_services:
+                    suggestions.append(svc)
+                    matched_services.add(svc.lower())
+    
+    # 3. Get businesses matching any found service
+    results = []
+    for biz in businesses:
+        biz_service = (get_row_value(biz, 'Business Services') or '').strip()
+        biz_name = biz.get('business_name', '')
+        # Match against service name or business name
+        if (biz_service.lower() in matched_services or
+            query in biz_name.lower() or
+            query in biz_service.lower()):
+            is_boosted = bool(biz.get('is_ad_boosted'))
+            results.append({
+                "id": biz.get('id'),
+                "business_name": biz_name or 'Unknown',
+                "service": biz_service,
+                "location": (get_row_value(biz, 'Business Location') or '').strip(),
+                "is_boosted": is_boosted
+            })
+    
+    # Boosted first
+    results.sort(key=lambda x: (not x['is_boosted'], x['business_name'].lower()))
+    
+    return {
+        "query": q,
+        "businesses": results,
+        "suggestions": list(set(suggestions))[:5],
+        "total": len(results)
+    }
 
 @app.get("/pay")
 async def serve_pay_page(request: Request):
