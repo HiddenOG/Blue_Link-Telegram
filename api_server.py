@@ -191,8 +191,8 @@ async def get_dashboard_data(initData: str = Query(None), user_id: int = Query(N
                     lambda ds=day_start, de=day_end: supabase.table('lead_requests')
                         .select('id', count='exact')
                         .eq('business_id', biz_id)
-                        .gte('created_at', ds)
-                        .lte('created_at', de)
+                        .gte('request_timestamp', ds)
+                        .lte('request_timestamp', de)
                         .execute()
                 )
                 req_count = leads_resp.count if leads_resp.count else (len(leads_resp.data) if leads_resp.data else 0)
@@ -1134,5 +1134,3 @@ if __name__ == "__main__":
     import uvicorn
     # Local run for testing
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
