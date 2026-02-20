@@ -290,7 +290,16 @@ async def delete_business(
     uid = resolve_user_id(initData, user_id)
     
     try:
-        # Verify ownership and delete
+        # Delete related records first (foreign key constraints)
+        for table in ['lead_requests', 'link_clicks', 'customer_request_history']:
+            await asyncio.to_thread(
+                lambda t=table: supabase.table(t)
+                    .delete()
+                    .eq('business_id', business_id)
+                    .execute()
+            )
+        
+        # Now delete the business
         result = await asyncio.to_thread(
             lambda: supabase.table('businesses')
                 .delete()
@@ -298,7 +307,6 @@ async def delete_business(
                 .eq('telegram_id', uid)
                 .execute()
         )
-
 
         
         if not result.data:
@@ -308,6 +316,8 @@ async def delete_business(
         await refresh_cache_from_supabase()
         
         return {"success": True, "message": "Business deleted successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         logging.error(f"Error deleting business: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1134,3 +1144,4 @@ if __name__ == "__main__":
     import uvicorn
     # Local run for testing
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
