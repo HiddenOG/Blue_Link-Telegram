@@ -67,10 +67,12 @@ async function init() {
 
 
 
-        // Setup user info
+        // Setup user info from WebApp
         const userDisplay = WebApp.initDataUnsafe.user;
-        if (userDisplay) {
-            welcomeMsg.innerText = `Hi, ${userDisplay.first_name || 'Business Owner'}!`;
+        let gotNameFromWebApp = false;
+        if (userDisplay && userDisplay.first_name) {
+            welcomeMsg.innerText = `Hi, ${userDisplay.first_name}!`;
+            gotNameFromWebApp = true;
             if (userDisplay.photo_url) {
                 const img = document.getElementById('user-photo');
                 img.src = userDisplay.photo_url;
@@ -100,8 +102,8 @@ async function init() {
 
         currentData = await response.json();
 
-        // Update greeting with API user_name if WebApp didn't provide one
-        if (!userDisplay && currentData.user_name) {
+        // Update greeting from API if WebApp didn't provide a name
+        if (!gotNameFromWebApp && currentData.user_name) {
             welcomeMsg.innerText = `Hi, ${currentData.user_name}!`;
         }
 
@@ -464,4 +466,6 @@ function triggerRegistration() {
     WebApp.sendData("trigger_register_from_dashboard");
     WebApp.close();
 }
+
+
 
