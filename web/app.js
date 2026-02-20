@@ -26,6 +26,7 @@ const infoBoost = document.getElementById('info-boost');
 
 let chart = null;
 let currentData = null;
+let userId = null; // Global user ID for API calls
 
 // Photo editing state
 let photoState = {
@@ -67,12 +68,12 @@ async function init() {
 
 
         // Setup user info
-        const user = WebApp.initDataUnsafe.user;
-        if (user) {
-            welcomeMsg.innerText = `Hi, ${user.first_name || 'Business Owner'}!`;
-            if (user.photo_url) {
+        const userDisplay = WebApp.initDataUnsafe.user;
+        if (userDisplay) {
+            welcomeMsg.innerText = `Hi, ${userDisplay.first_name || 'Business Owner'}!`;
+            if (userDisplay.photo_url) {
                 const img = document.getElementById('user-photo');
-                img.src = user.photo_url;
+                img.src = userDisplay.photo_url;
                 img.classList.remove('hidden');
             }
         }
@@ -83,6 +84,10 @@ async function init() {
         if (fallbackUid) {
             apiUrl += `&user_id=${fallbackUid}`;
         }
+
+        // Resolve userId for all subsequent API calls
+        const user = WebApp.initDataUnsafe.user;
+        userId = (user && user.id) ? user.id : fallbackUid;
 
         // Fetch data from API
         const response = await fetch(apiUrl, {
@@ -321,7 +326,7 @@ async function saveBusinessChanges(e) {
         const initData = WebApp.initData;
 
         // Save text fields + photo removals
-        const response = await fetch(`/api/business/update?initData=${encodeURIComponent(initData)}&business_id=${biz.id}`, {
+        const response = await fetch(`/api/business/update?initData=${encodeURIComponent(initData)}&business_id=${biz.id}&user_id=${userId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -342,7 +347,7 @@ async function saveBusinessChanges(e) {
                 uploadForm.append('photo', photoState.newFiles[i]);
                 uploadForm.append('slot', availableSlots[i]);
 
-                await fetch(`/api/business/upload-photo?initData=${encodeURIComponent(initData)}&business_id=${biz.id}`, {
+                await fetch(`/api/business/upload-photo?initData=${encodeURIComponent(initData)}&business_id=${biz.id}&user_id=${userId}`, {
                     method: 'POST',
                     headers: { 'ngrok-skip-browser-warning': 'true' },
                     body: uploadForm
@@ -371,7 +376,7 @@ async function deleteBusiness() {
 
         try {
             const initData = WebApp.initData;
-            const response = await fetch(`/api/business/delete?initData=${encodeURIComponent(initData)}&business_id=${biz.id}`, {
+            const response = await fetch(`/api/business/delete?initData=${encodeURIComponent(initData)}&business_id=${biz.id}&user_id=${userId}`, {
                 method: 'POST',
                 headers: {
                     'ngrok-skip-browser-warning': 'true'
