@@ -772,8 +772,10 @@ async def search_catalog(q: str = Query(..., min_length=1)):
     for biz in businesses:
         biz_service = (get_row_value(biz, 'Business Services') or '').strip()
         biz_name = biz.get('business_name', '')
+        biz_location = biz.get('business_location', '')
         # Match against service name or business name
         if (biz_service.lower() in matched_services or
+            biz_location.lower() in matched_services or
             query in biz_name.lower() or
             query in biz_service.lower()):
             is_boosted = bool(biz.get('is_ad_boosted'))
@@ -781,7 +783,7 @@ async def search_catalog(q: str = Query(..., min_length=1)):
                 "id": biz.get('id'),
                 "business_name": biz_name or 'Unknown',
                 "service": biz_service,
-                "location": (get_row_value(biz, 'Business Location') or '').strip(),
+                "location": biz_location,
                 "is_boosted": is_boosted
             })
     
@@ -1333,4 +1335,5 @@ if __name__ == "__main__":
     import uvicorn
     # Local run for testing
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
