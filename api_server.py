@@ -356,14 +356,15 @@ async def get_business_profile(business_id: int):
     cached = get_cached_businesses()
     business = None
     for b in cached:
-        if b.get('id') == business_id:
+        # Robust ID comparison (handle string vs int)
+        if str(get_row_value(b, 'id')) == str(business_id):
             business = b
             break
     
     if not business:
         raise HTTPException(status_code=404, detail="Business not found")
     
-    owner_id = business.get('telegram_id')
+    owner_id = get_row_value(business, 'Telegram ID')
     owner_coins = 0
     if owner_id:
         try:
@@ -403,14 +404,15 @@ async def contact_business(request: Request):
     cached = get_cached_businesses()
     business = None
     for b in cached:
-        if b.get('id') == business_id:
+        # Robust ID comparison (handle string vs int)
+        if str(get_row_value(b, 'id')) == str(business_id):
             business = b
             break
     
     if not business:
         raise HTTPException(status_code=404, detail="Business not found")
     
-    owner_id = business.get('telegram_id')
+    owner_id = get_row_value(business, 'Telegram ID')
     business_name = get_row_value(business, 'Business Name') or 'Unknown'
     service = get_row_value(business, 'Business Services') or 'N/A'
     location = get_row_value(business, 'Business Location') or 'N/A'
@@ -613,18 +615,24 @@ async def get_catalog(service: Optional[str] = Query(None), location: Optional[s
             biz_location = get_row_value(biz, 'Business Location') or ''
             if (biz_service.strip().lower() == service.strip().lower() and 
                 biz_location.strip().lower() == location.strip().lower()):
-                is_boosted = bool(biz.get('is_ad_boosted'))
+                
+                # Use get_row_value for all fields to handle raw record keys
+                biz_id = get_row_value(biz, 'id')
+                biz_name = get_row_value(biz, 'Business Name') or 'Unknown'
+                is_boosted = bool(get_row_value(biz, 'is_ad_boosted'))
+                has_photos = bool(get_row_value(biz, 'photo_1'))
+                
                 results.append({
-                    "id": biz.get('id'),
-                    "business_name": biz.get('business_name', 'Unknown'),
+                    "id": biz_id,
+                    "business_name": biz_name,
                     "service": biz_service.strip(),
                     "location": biz_location.strip(),
-                    "description": (biz.get('business_description') or '')[:100],
+                    "description": (get_row_value(biz, 'Business Description') or '')[:100],
                     "is_boosted": is_boosted,
-                    "has_photos": bool(biz.get('photo_1'))
+                    "has_photos": has_photos
                 })
-        # Boosted businesses first
-        results.sort(key=lambda x: (not x['is_boosted'], x['business_name'].lower()))
+        # Boosted businesses first, then by name (handling potential None names)
+        results.sort(key=lambda x: (not x['is_boosted'], (x['business_name'] or '').lower()))
         return {
             "service": service,
             "location": location,
@@ -1324,6 +1332,7 @@ if __name__ == "__main__":
     import uvicorn
     # Local run for testing
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
