@@ -615,7 +615,7 @@
 
                 // Open WhatsApp link using WebApp.openLink for better compatibility (especially iPhone/Safari)
                 if (result.wa_link) {
-                    WebApp.openLink(result.wa_link);
+                    WebApp.openLink(result.wa_link, { try_instant_view: false });
                 }
 
                 // Update button state
@@ -657,4 +657,3 @@
 </body>
 
 </html>
-
