@@ -384,14 +384,9 @@
         <!-- Services View -->
         <div id="services-view">
             <div class="search-container">
-                <input type="text" id="search-input" class="search-input"
-                    placeholder="Search services or businesses...">
+                <input type="text" id="search-input" class="search-input" placeholder="Search services...">
             </div>
             <div id="suggestion-area"></div>
-            <div id="search-results" class="hidden">
-                <div id="search-results-header" class="search-results-header"></div>
-                <div id="search-results-list" class="biz-list"></div>
-            </div>
             <div id="service-grid" class="service-grid"></div>
             <div id="total-badge" class="total-badge"></div>
         </div>
@@ -670,14 +665,10 @@
             const grid = document.getElementById('service-grid');
             const totalBadge = document.getElementById('total-badge');
             const suggestionArea = document.getElementById('suggestion-area');
-            const searchResults = document.getElementById('search-results');
-            const searchHeader = document.getElementById('search-results-header');
-            const searchList = document.getElementById('search-results-list');
 
             if (!query) {
                 // Reset to default
                 suggestionArea.innerHTML = '';
-                searchResults.classList.add('hidden');
                 grid.classList.remove('hidden');
                 totalBadge.classList.remove('hidden');
                 renderServices(allServices);
@@ -685,12 +676,12 @@
             }
 
             // Local filter of services first (instant)
-            const filtered = allServices.filter(s =>
+            const localFiltered = allServices.filter(s =>
                 s.name.toLowerCase().includes(query.toLowerCase())
             );
-            renderServices(filtered);
+            renderServices(localFiltered);
 
-            // Then do API search for businesses + suggestions
+            // Then do API search for semantic suggestions and categories
             try {
                 const res = await fetch(`/api/catalog/search?q=${encodeURIComponent(query)}`, {
                     headers: { 'ngrok-skip-browser-warning': 'true' }
@@ -715,16 +706,16 @@
                     });
                 }
 
-                // Show business results
-                if (data.businesses && data.businesses.length > 0) {
-                    grid.classList.add('hidden');
-                    totalBadge.classList.add('hidden');
-                    searchResults.classList.remove('hidden');
-                    searchHeader.textContent = `${data.total} business${data.total !== 1 ? 'es' : ''} found`;
-                    renderBusinessList(searchList, data.businesses);
-                } else if (filtered.length === 0) {
-                    searchResults.classList.add('hidden');
-                    grid.classList.remove('hidden');
+                // If API returned matched categories that weren't in our local filter (synonym matches)
+                if (data.categories && data.categories.length > 0) {
+                    // Combine with local filter and remove duplicates
+                    const combined = [...localFiltered];
+                    data.categories.forEach(apiSvc => {
+                        if (!combined.some(s => s.name.toLowerCase() === apiSvc.name.toLowerCase())) {
+                            combined.push(apiSvc);
+                        }
+                    });
+                    renderServices(combined);
                 }
             } catch (e) {
                 console.error('Search error:', e);
