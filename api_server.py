@@ -1199,7 +1199,7 @@ async def register_business(
     if not resolved_user_id and user_id:
         # Emergency Fallback: If auth fails (e.g. Ngrok strips hash), trust the form user_id
         resolved_user_id = user_id
-        logging.warning(f"⚠️ Auth failed/missing, using fallback user_id: {resolved_user_id}")
+        logging.info(f"ℹ️ Auth failed/original missing, using Ngrok fallback user_id: {resolved_user_id}")
     
     if not resolved_user_id:
         logging.error("❌ No user_id could be determined")
@@ -1332,6 +1332,8 @@ if __name__ == "__main__":
     import uvicorn
     # Local run for testing
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
 
 
 
