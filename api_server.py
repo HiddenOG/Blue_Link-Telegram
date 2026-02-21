@@ -729,7 +729,7 @@ def fuzzy_match(query, candidates, threshold=0.6):
 async def search_catalog(q: str = Query(..., min_length=1)):
     """
     Hybrid search: synonym map + fuzzy matching.
-    Returns matching businesses + suggestions for related services.
+    Returns matching categories (services) + suggestions for related services.
     """
     from bot_state import get_cached_businesses, get_row_value
     businesses = get_cached_businesses()
@@ -737,10 +737,12 @@ async def search_catalog(q: str = Query(..., min_length=1)):
     
     # 1. Get all unique service names
     all_services = set()
+    service_counts = {}
     for biz in businesses:
         svc = (get_row_value(biz, 'Business Services') or '').strip()
         if svc:
             all_services.add(svc)
+            service_counts[svc.lower()] = service_counts.get(svc.lower(), 0) + 1
     
     # 2. Find matching services (fuzzy + synonym)
     matched_services = set()
@@ -749,7 +751,7 @@ async def search_catalog(q: str = Query(..., min_length=1)):
     # Direct/fuzzy matches against actual service names
     fuzzy_results = fuzzy_match(query, list(all_services), threshold=0.5)
     for svc_name, score in fuzzy_results:
-        matched_services.add(svc_name.lower())
+        matched_services.add(svc_name)
     
     # Synonym suggestions
     synonyms = SYNONYM_MAP.get(query, [])
@@ -758,41 +760,28 @@ async def search_catalog(q: str = Query(..., min_length=1)):
         if query in [v.lower() for v in values]:
             synonyms.append(key)
     
-    # Find which synonyms actually have businesses
+    # Find which synonyms/keys actually exist as services
     for syn in synonyms:
         syn_lower = syn.lower()
         for svc in all_services:
             if syn_lower == svc.lower() or syn_lower in svc.lower():
-                if svc.lower() not in matched_services:
+                if svc not in matched_services:
                     suggestions.append(svc)
-                    matched_services.add(svc.lower())
     
-    # 3. Get businesses matching any found service
+    # Return list of service objects
     results = []
-    for biz in businesses:
-        biz_service = (get_row_value(biz, 'Business Services') or '').strip()
-        biz_name = biz.get('business_name', '')
-        biz_location = biz.get('business_location', '')
-        # Match against service name or business name
-        if (biz_service.lower() in matched_services or
-            biz_location.lower() in matched_services or
-            query in biz_name.lower() or
-            query in biz_service.lower()):
-            is_boosted = bool(biz.get('is_ad_boosted'))
-            results.append({
-                "id": biz.get('id'),
-                "business_name": biz_name or 'Unknown',
-                "service": biz_service,
-                "location": biz_location,
-                "is_boosted": is_boosted
-            })
+    for svc_name in matched_services:
+        results.append({
+            "name": svc_name,
+            "count": service_counts.get(svc_name.lower(), 0)
+        })
     
-    # Boosted first
-    results.sort(key=lambda x: (not x['is_boosted'], x['business_name'].lower()))
+    # Sort results by name
+    results.sort(key=lambda x: x["name"].lower())
     
     return {
         "query": q,
-        "businesses": results,
+        "categories": results,
         "suggestions": list(set(suggestions))[:5],
         "total": len(results)
     }
@@ -1335,5 +1324,6 @@ if __name__ == "__main__":
     import uvicorn
     # Local run for testing
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
