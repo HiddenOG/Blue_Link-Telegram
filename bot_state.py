@@ -246,8 +246,20 @@ async def refresh_cache_from_supabase():
             balance = coin_record.get('coin_balance', 0)
             if tid:
                 set_user_coins(int(tid), balance)
+
+        # ✅ NEW: Load historical leads for cooldown persistence (last 7 days)
+        from coin_system import load_cooldowns_from_db
+        seven_days_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+        lead_response = await asyncio.to_thread(
+            lambda: supabase.table('lead_requests')
+                .select('*')
+                .gte('created_at', seven_days_ago)
+                .execute()
+        )
+        if lead_response.data:
+            load_cooldowns_from_db(lead_response.data)
         
-        logging.info(f"✅ Cache refreshed! {len(records)} businesses, {len(USER_REGISTRATIONS)} users, {len(coin_response.data)} coin accounts")
+        logging.info(f"✅ Cache refreshed! {len(records)} businesses, {len(USER_REGISTRATIONS)} users, {len(coin_response.data)} coin accounts, {len(lead_response.data)} active leads")
         
     except Exception as e:
         logging.error(f"❌ Cache refresh failed: {e}")
@@ -265,5 +277,6 @@ async def start_cache_refresh_loop():
         except Exception as e:
             logging.error(f"Cache refresh loop error: {e}")
             await asyncio.sleep(60)
+
 
 
