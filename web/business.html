@@ -603,7 +603,7 @@
                     },
                     body: JSON.stringify({
                         business_id: parseInt(businessId),
-                        customer_id: parseInt(customerId)
+                        customer_id: parseInt(customerId || (WebApp.initDataUnsafe.user ? WebApp.initDataUnsafe.user.id : null))
                     })
                 });
 
@@ -613,9 +613,9 @@
                     throw new Error(result.detail || 'Failed to contact business');
                 }
 
-                // Open WhatsApp link
+                // Open WhatsApp link using WebApp.openLink for better compatibility (especially iPhone/Safari)
                 if (result.wa_link) {
-                    window.open(result.wa_link, '_blank');
+                    WebApp.openLink(result.wa_link);
                 }
 
                 // Update button state
@@ -632,8 +632,9 @@
                 btn.innerHTML = '💬 Contact on WhatsApp';
 
                 if (err.message.includes('cooldown') || err.message.includes('Wait')) {
-                    // Cooldown but still show wa link - try fetching it
                     WebApp.showAlert(err.message);
+                } else if (!businessId || (!customerId && !WebApp.initDataUnsafe.user)) {
+                    WebApp.showAlert('Error: Missing identification. Please try opening from the bot again.');
                 } else {
                     WebApp.showAlert('Error: ' + err.message);
                 }
@@ -656,3 +657,4 @@
 </body>
 
 </html>
+
