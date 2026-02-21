@@ -155,3 +155,34 @@ def record_link_click(customer_id, business_id):
     DAILY_LINK_CLICKS[customer_id][today] = DAILY_LINK_CLICKS[customer_id].get(today, 0) + 1
     
     logging.info(f"🔗 Recorded link click: Customer {customer_id} → Business {business_id}")
+
+def load_cooldowns_from_db(leads_data):
+    """Populate CUSTOMER_REQUESTS from database records (on startup/refresh)"""
+    global CUSTOMER_REQUESTS
+    logging.info(f"💾 Loading {len(leads_data)} historical leads into cooldown memory...")
+    
+    new_requests = {}
+    for lead in leads_data:
+        customer_id = lead.get('customer_telegram_id')
+        business_id = lead.get('business_id')
+        timestamp_str = lead.get('created_at')
+        
+        if customer_id and business_id and timestamp_str:
+            try:
+                # Supabase timestamps are ISO strings
+                # Handle cases with or without microseconds/timezone
+                ts_clean = timestamp_str.split('+')[0]
+                if '.' in ts_clean:
+                    ts = datetime.strptime(ts_clean, "%Y-%m-%dT%H:%M:%S.%f")
+                else:
+                    ts = datetime.strptime(ts_clean, "%Y-%m-%dT%H:%M:%S")
+                
+                if customer_id not in new_requests:
+                    new_requests[customer_id] = []
+                new_requests[customer_id].append((business_id, ts))
+            except Exception as e:
+                logging.error(f"Failed to parse lead timestamp {timestamp_str}: {e}")
+                continue
+    
+    CUSTOMER_REQUESTS = new_requests
+    logging.info(f"✅ Restored cooldown state for {len(new_requests)} customers")
