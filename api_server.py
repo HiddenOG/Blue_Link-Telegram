@@ -438,7 +438,7 @@ async def contact_business(request: Request):
         f"Thank you!"
     )
     encoded_msg = urllib.parse.quote(auto_message)
-    wa_link = f"https://wa.me/{phone}?text={encoded_msg}"
+    wa_link = f"https://api.whatsapp.com/send?phone={phone}&text={encoded_msg}"
     
     # Legacy business - no coin system
     if not owner_id:
@@ -1332,6 +1332,7 @@ if __name__ == "__main__":
     import uvicorn
     # Local run for testing
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
