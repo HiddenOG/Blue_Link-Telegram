@@ -414,6 +414,8 @@
         const params = new URLSearchParams(window.location.search);
         const businessId = params.get('id');
         const customerId = params.get('uid');
+        const serviceContext = params.get('service');
+        const locationContext = params.get('location');
 
         let bizData = null;
         let galleryIndex = 0;
@@ -643,7 +645,13 @@
 
         // Back button
         document.getElementById('page-back-btn').addEventListener('click', () => {
-            if (window.history.length > 1) {
+            // ✅ NEW: Hierarchical Back Navigation
+            if (serviceContext || locationContext) {
+                let backUrl = `catalog.html?uid=${customerId || ''}`;
+                if (serviceContext) backUrl += `&service=${encodeURIComponent(serviceContext)}`;
+                if (locationContext) backUrl += `&location=${encodeURIComponent(locationContext)}`;
+                window.location.href = backUrl;
+            } else if (window.history.length > 1) {
                 window.history.back();
             } else {
                 // Fallback to catalog if no history
@@ -657,3 +665,4 @@
 </body>
 
 </html>
+
