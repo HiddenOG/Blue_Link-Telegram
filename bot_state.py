@@ -253,7 +253,7 @@ async def refresh_cache_from_supabase():
         lead_response = await asyncio.to_thread(
             lambda: supabase.table('lead_requests')
                 .select('*')
-                .gte('created_at', seven_days_ago)
+                .gte('request_timestamp', seven_days_ago)
                 .execute()
         )
         if lead_response.data:
