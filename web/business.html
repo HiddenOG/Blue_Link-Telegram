@@ -410,6 +410,12 @@
         WebApp.expand();
         WebApp.ready();
 
+        // ✅ NEW: Native Back Button
+        WebApp.BackButton.show();
+        WebApp.onEvent('backButtonClicked', () => {
+            handleBack();
+        });
+
         // Parse URL params
         const params = new URLSearchParams(window.location.search);
         const businessId = params.get('id');
@@ -643,9 +649,8 @@
             }
         });
 
-        // Back button
-        document.getElementById('page-back-btn').addEventListener('click', () => {
-            // ✅ NEW: Hierarchical Back Navigation
+        // ✅ NEW: Centralized Back logic
+        function handleBack() {
             if (serviceContext || locationContext) {
                 let backUrl = `catalog.html?uid=${customerId || ''}`;
                 if (serviceContext) backUrl += `&service=${encodeURIComponent(serviceContext)}`;
@@ -654,9 +659,13 @@
             } else if (window.history.length > 1) {
                 window.history.back();
             } else {
-                // Fallback to catalog if no history
                 window.location.href = 'catalog.html';
             }
+        }
+
+        // Back button
+        document.getElementById('page-back-btn').addEventListener('click', () => {
+            handleBack();
         });
 
         // Start
