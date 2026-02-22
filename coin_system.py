@@ -165,7 +165,7 @@ def load_cooldowns_from_db(leads_data):
     for lead in leads_data:
         customer_id = lead.get('customer_telegram_id')
         business_id = lead.get('business_id')
-        timestamp_str = lead.get('created_at')
+        timestamp_str = lead.get('request_timestamp')
         
         if customer_id and business_id and timestamp_str:
             try:
