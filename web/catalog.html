@@ -481,12 +481,37 @@
         let currentLocation = '';
         let searchTimeout = null;
 
+        // --- Back Button Management ---
+        function updateBackButton() {
+            const currentView = ['services-view', 'locations-view', 'businesses-view'].find(id =>
+                !document.getElementById(id).classList.contains('hidden')
+            );
+
+            if (currentView === 'services-view') {
+                tg.BackButton.hide();
+            } else {
+                tg.BackButton.show();
+            }
+        }
+
+        tg.onEvent('backButtonClicked', () => {
+            const locView = document.getElementById('locations-view');
+            const bizView = document.getElementById('businesses-view');
+
+            if (!bizView.classList.contains('hidden')) {
+                showLocations(currentService);
+            } else if (!locView.classList.contains('hidden')) {
+                showView('services-view');
+            }
+        });
+
         // ==================== VIEWS ====================
 
         function showView(viewId) {
             ['services-view', 'locations-view', 'businesses-view'].forEach(id => {
                 document.getElementById(id).classList.toggle('hidden', id !== viewId);
             });
+            updateBackButton();
         }
 
         // ==================== LOAD CATALOG ====================
@@ -506,10 +531,12 @@
                 const locParam = urlParams.get('location');
 
                 if (svcParam && locParam) {
+                    currentService = svcParam; // Set context
                     await showBusinesses(svcParam, locParam);
                 } else if (svcParam) {
                     await showLocations(svcParam);
                 } else {
+                    showView('services-view');
                     renderServices(allServices);
                 }
 
@@ -758,7 +785,7 @@
 
         document.getElementById('biz-back-btn').addEventListener('click', () => {
             if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-            showView('locations-view');
+            showLocations(currentService);
         });
 
         // Init
