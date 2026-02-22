@@ -499,7 +499,20 @@
                 const data = await res.json();
 
                 allServices = data.services;
-                renderServices(allServices);
+
+                // ✅ NEW: Handle Return State/Deep Linking
+                const urlParams = new URLSearchParams(window.location.search);
+                const svcParam = urlParams.get('service');
+                const locParam = urlParams.get('location');
+
+                if (svcParam && locParam) {
+                    await showBusinesses(svcParam, locParam);
+                } else if (svcParam) {
+                    await showLocations(svcParam);
+                } else {
+                    renderServices(allServices);
+                }
+
                 document.getElementById('total-badge').textContent =
                     `${data.total} businesses · ${allServices.length} services`;
 
@@ -651,12 +664,18 @@
 
         function openBusiness(bizId) {
             if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-            // Get uid from URL if available
+
             const urlParams = new URLSearchParams(window.location.search);
             const uid = urlParams.get('uid') || '';
             const user = tg.initDataUnsafe.user;
             const customerId = (user && user.id) ? user.id : uid;
-            window.location.href = `business.html?id=${bizId}&uid=${customerId}`;
+
+            // ✅ NEW: Pass context back to business profile
+            let url = `business.html?id=${bizId}&uid=${customerId}`;
+            if (currentService) url += `&service=${encodeURIComponent(currentService)}`;
+            if (currentLocation) url += `&location=${encodeURIComponent(currentLocation)}`;
+
+            window.location.href = url;
         }
 
         // ==================== HYBRID SEARCH ====================
@@ -748,4 +767,3 @@
 </body>
 
 </html>
-
