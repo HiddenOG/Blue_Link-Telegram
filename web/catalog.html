@@ -524,6 +524,7 @@
                 const data = await res.json();
 
                 allServices = data.services;
+                renderServices(allServices); // ✅ Populate grid first so it's ready when user goes back
 
                 // ✅ NEW: Handle Return State/Deep Linking
                 const urlParams = new URLSearchParams(window.location.search);
@@ -537,7 +538,6 @@
                     await showLocations(svcParam);
                 } else {
                     showView('services-view');
-                    renderServices(allServices);
                 }
 
                 document.getElementById('total-badge').textContent =
@@ -794,3 +794,4 @@
 </body>
 
 </html>
+
