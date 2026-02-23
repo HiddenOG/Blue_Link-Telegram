@@ -66,6 +66,33 @@
             display: inline-block;
         }
 
+        .preview-item.loading::after {
+            content: "Converting...";
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            background: rgba(0, 0, 0, 0.55);
+            border-radius: 8px;
+            text-align: center;
+            padding: 6px;
+        }
+
+        .convert-hint {
+            margin-top: 8px;
+            font-size: 12px;
+            color: var(--hint-color);
+            display: none;
+        }
+
+        .convert-hint.show {
+            display: block;
+        }
+
         .remove-btn {
             position: absolute;
             top: -8px;
@@ -146,6 +173,7 @@
                         <input type="file" id="photo-input" class="hidden-input" accept="image/*" multiple max="3">
                     </label>
                     <div id="preview-area" class="preview-container"></div>
+                    <div id="convert-hint" class="convert-hint">⏳ Please wait… converting images to be uploaded.</div>
                 </div>
             </div>
 
@@ -198,9 +226,12 @@
 
         const photoInput = document.getElementById('photo-input');
         const previewArea = document.getElementById('preview-area');
+        const convertHint = document.getElementById('convert-hint');
 
         // We store normalized files here (HEIC -> JPEG when possible)
         let selectedFiles = [];
+        // Track which indices are currently converting (for UI overlay)
+        const convertingIndices = new Set();
 
         // Haptic feedback
         const haptic = tg.HapticFeedback;
@@ -280,8 +311,10 @@
                 const original = selectedFiles[i];
                 if (!isHeicFile(original)) continue;
 
-                // Optional: small hint to user that conversion is happening
-                // (kept minimal to avoid spam)
+                convertingIndices.add(i);
+                convertHint.classList.add('show');
+                renderPreviews();
+
                 try {
                     const normalized = await normalizeImageFile(original);
 
@@ -292,11 +325,14 @@
                     if (isHeicFile(normalized)) {
                         tg.showAlert("This photo looks like HEIC (iPhone camera). Converting failed on this device. Please try selecting a different photo or change camera format to 'Most Compatible' (JPEG).");
                     }
-
-                    // Re-render to update preview if needed
-                    renderPreviews();
                 } catch (err) {
                     console.warn("Background normalization failed:", err);
+                } finally {
+                    convertingIndices.delete(i);
+                    if (convertingIndices.size === 0) {
+                        convertHint.classList.remove('show');
+                    }
+                    renderPreviews();
                 }
             }
         });
@@ -306,6 +342,9 @@
             selectedFiles.forEach((file, index) => {
                 const container = document.createElement('div');
                 container.className = 'preview-item';
+                if (convertingIndices.has(index)) {
+                    container.classList.add('loading');
+                }
 
                 const img = document.createElement('img');
                 img.className = 'preview-img';
@@ -344,6 +383,22 @@
 
         function removePhoto(index) {
             selectedFiles.splice(index, 1);
+
+            // Rebuild converting indices to match new array indices
+            if (convertingIndices.size > 0) {
+                const newSet = new Set();
+                for (const i of convertingIndices) {
+                    if (i === index) continue; // removed item
+                    newSet.add(i > index ? i - 1 : i);
+                }
+                convertingIndices.clear();
+                for (const i of newSet) convertingIndices.add(i);
+
+                if (convertingIndices.size === 0) {
+                    convertHint.classList.remove('show');
+                }
+            }
+
             renderPreviews();
             haptic.notificationOccurred('warning');
         }
@@ -433,6 +488,8 @@
 </body>
 
 </html>
+
+
 
 
 
