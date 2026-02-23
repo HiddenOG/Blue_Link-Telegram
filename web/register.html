@@ -198,55 +198,147 @@
 
         const photoInput = document.getElementById('photo-input');
         const previewArea = document.getElementById('preview-area');
+
+        // We store normalized files here (HEIC -> JPEG when possible)
         let selectedFiles = [];
 
         // Haptic feedback
         const haptic = tg.HapticFeedback;
 
-        photoInput.addEventListener('change', (e) => {
-            const files = Array.from(e.target.files);
+        // --- HEIC support (iOS camera) ---
+        // We lazy-load heic2any from CDN only when needed.
+        let heic2anyLoader = null;
+        function loadHeic2Any() {
+            if (window.heic2any) return Promise.resolve(window.heic2any);
+            if (heic2anyLoader) return heic2anyLoader;
+
+            heic2anyLoader = new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = "https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js";
+                s.onload = () => resolve(window.heic2any);
+                s.onerror = () => reject(new Error("Failed to load HEIC converter"));
+                document.head.appendChild(s);
+            });
+
+            return heic2anyLoader;
+        }
+
+        function isHeicFile(file) {
+            const name = (file?.name || '').toLowerCase();
+            const type = (file?.type || '').toLowerCase();
+            // iOS often uses image/heic or image/heif; sometimes type is empty.
+            return type.includes('heic') || type.includes('heif') || name.endsWith('.heic') || name.endsWith('.heif');
+        }
+
+        async function normalizeImageFile(file) {
+            // Convert HEIC/HEIF to JPEG so preview + backend upload works everywhere.
+            if (!isHeicFile(file)) return file;
+
+            try {
+                const heic2any = await loadHeic2Any();
+                const blob = await heic2any({
+                    blob: file,
+                    toType: "image/jpeg",
+                    quality: 0.85
+                });
+
+                // heic2any may return a Blob or an array of Blobs
+                const outBlob = Array.isArray(blob) ? blob[0] : blob;
+
+                const baseName = (file.name || 'photo').replace(/\.(heic|heif)$/i, '');
+                const outName = `${baseName}.jpg`;
+
+                return new File([outBlob], outName, { type: "image/jpeg" });
+            } catch (err) {
+                console.warn("HEIC conversion failed, keeping original file:", err);
+                // If conversion fails, keep original; backend may still reject it,
+                // but at least user can proceed and we can show a helpful message later.
+                return file;
+            }
+        }
+
+        photoInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files || []);
             if (files.length + selectedFiles.length > 3) {
                 tg.showAlert("You can only upload up to 3 photos.");
                 photoInput.value = ''; // Reset input
                 return;
             }
 
-            files.forEach(file => {
-                if (selectedFiles.length >= 3) return;
+            // Show previews immediately (fast), then convert HEIC in background (slow)
+            const startIndex = selectedFiles.length;
+            for (const file of files) {
+                if (selectedFiles.length >= 3) break;
                 selectedFiles.push(file);
-            });
-
+            }
             renderPreviews();
             photoInput.value = ''; // Reset input so same file can be selected again if removed
             haptic.selectionChanged();
+
+            // Background normalization (HEIC -> JPEG) to avoid 15-20s "nothing happens"
+            for (let i = startIndex; i < selectedFiles.length; i++) {
+                const original = selectedFiles[i];
+                if (!isHeicFile(original)) continue;
+
+                // Optional: small hint to user that conversion is happening
+                // (kept minimal to avoid spam)
+                try {
+                    const normalized = await normalizeImageFile(original);
+
+                    // Replace in-place so submit uses the converted JPEG
+                    selectedFiles[i] = normalized;
+
+                    // If still HEIC after normalization, warn user (preview may fail on some devices)
+                    if (isHeicFile(normalized)) {
+                        tg.showAlert("This photo looks like HEIC (iPhone camera). Converting failed on this device. Please try selecting a different photo or change camera format to 'Most Compatible' (JPEG).");
+                    }
+
+                    // Re-render to update preview if needed
+                    renderPreviews();
+                } catch (err) {
+                    console.warn("Background normalization failed:", err);
+                }
+            }
         });
 
         function renderPreviews() {
             previewArea.innerHTML = '';
             selectedFiles.forEach((file, index) => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const container = document.createElement('div');
-                    container.className = 'preview-item';
+                const container = document.createElement('div');
+                container.className = 'preview-item';
 
-                    const img = document.createElement('img');
-                    img.src = e.target.result;
-                    img.className = 'preview-img';
+                const img = document.createElement('img');
+                img.className = 'preview-img';
 
-                    const removeBtn = document.createElement('button');
-                    removeBtn.innerHTML = '×';
-                    removeBtn.className = 'remove-btn';
-                    removeBtn.type = 'button';
-                    removeBtn.onclick = (event) => {
-                        event.preventDefault();
-                        removePhoto(index);
-                    };
-
-                    container.appendChild(img);
-                    container.appendChild(removeBtn);
-                    previewArea.appendChild(container);
+                // Prefer object URLs (more reliable than FileReader for some mobile formats)
+                const objectUrl = URL.createObjectURL(file);
+                img.src = objectUrl;
+                img.onload = () => URL.revokeObjectURL(objectUrl);
+                img.onerror = () => {
+                    // Fallback to FileReader if object URL fails
+                    try {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                            img.src = ev.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    } catch (e) {
+                        console.warn("Preview failed:", e);
+                    }
                 };
-                reader.readAsDataURL(file);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.innerHTML = '×';
+                removeBtn.className = 'remove-btn';
+                removeBtn.type = 'button';
+                removeBtn.onclick = (event) => {
+                    event.preventDefault();
+                    removePhoto(index);
+                };
+
+                container.appendChild(img);
+                container.appendChild(removeBtn);
+                previewArea.appendChild(container);
             });
         }
 
@@ -341,4 +433,6 @@
 </body>
 
 </html>
+
+
 
