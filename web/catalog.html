@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Business Catalog</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Search Bar */
+        .search-container {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            padding: 8px 0 16px;
+            background: var(--bg-color);
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 16px 16px 16px 48px;
+            background: var(--secondary-bg);
+            border: var(--neo-border);
+            color: var(--text-color);
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 700;
+            box-shadow: var(--neo-shadow);
+            outline: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%2338BDF8' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'%3E%3C/circle%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'%3E%3C/line%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: 16px center;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent);
+            box-shadow: 6px 6px 0px var(--accent);
+        }
+
+        .search-input::placeholder {
+            color: var(--hint-color);
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+        }
+
+        /* Service Grid */
+        .service-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .service-card {
+            background: var(--secondary-bg);
+            border: var(--neo-border-thin);
+            padding: 24px 16px;
+            text-align: center;
+            cursor: pointer;
+            box-shadow: var(--neo-shadow-thin);
+            transition: all 0.1s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .service-card:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0px var(--border-color);
+        }
+
+        .service-emoji {
+            font-size: 2.22rem;
+            line-height: 1;
+            filter: drop-shadow(2px 2px 0px rgba(0, 0, 0, 0.5));
+        }
+
+        .service-name {
+            font-weight: 900;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+            color: var(--text-color);
+        }
+
+        .service-count {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--primary);
+            text-transform: uppercase;
+        }
+
+        /* Shared View Styles */
+        .view-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--button-color);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 0;
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .view-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        /* Location View */
+        .location-view,
+        .businesses-view {
+            animation: fadeIn 0.25s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .location-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .location-item {
+            background: var(--secondary-bg);
+            border: var(--neo-border-thin);
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            box-shadow: var(--neo-shadow-thin);
+            transition: all 0.1s;
+        }
+
+        .location-item:active {
+            transform: translate(2px, 2px);
+            box-shadow: 1px 1px 0px var(--border-color);
+        }
+
+        .location-name {
+            font-weight: 900;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+        }
+
+        .location-count {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--primary);
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        .location-arrow {
+            color: var(--accent);
+            font-weight: 900;
+        }
+
+        /* Business List (WhatsApp-style) */
+        .biz-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .biz-item {
+            background: var(--secondary-bg);
+            border: var(--neo-border-thin);
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            cursor: pointer;
+            box-shadow: var(--neo-shadow-thin);
+            transition: all 0.1s;
+        }
+
+        .biz-item:active {
+            transform: translate(2px, 2px);
+            box-shadow: 1px 1px 0px var(--border-color);
+        }
+
+        .biz-item.boosted {
+            border-color: var(--primary);
+            box-shadow: 5px 5px 0px var(--primary), 5px 5px 0px var(--border-color);
+        }
+
+        .biz-avatar {
+            width: 50px;
+            height: 50px;
+            background: var(--secondary);
+            border: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+            color: var(--accent);
+            box-shadow: 3px 3px 0px var(--border-color);
+        }
+
+        .biz-name {
+            font-weight: 900;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .biz-boost-badge {
+            font-size: 0.65rem;
+            background: var(--primary);
+            color: #000;
+            padding: 2px 8px;
+            border: 2px solid var(--border-color);
+            font-weight: 900;
+            text-transform: uppercase;
+            flex-shrink: 0;
+        }
+
+        .biz-subtitle {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--hint-color);
+            text-transform: uppercase;
+            margin-top: 3px;
+        }
+
+        .biz-arrow {
+            color: var(--accent);
+            font-weight: 900;
+        }
+
+        /* Suggestion Banner */
+        .suggestion-banner {
+            background: var(--secondary-bg);
+            border: var(--neo-border);
+            padding: 16px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            box-shadow: 6px 6px 0px var(--primary);
+            transition: all 0.1s;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .suggestion-banner:active {
+            transform: translate(3px, 3px);
+            box-shadow: 2px 2px 0px var(--primary);
+        }
+
+        .suggestion-icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+            filter: drop-shadow(2px 2px 0px #000);
+        }
+
+        .suggestion-text {
+            font-weight: 900;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+            color: var(--primary);
+            flex: 1;
+        }
+
+        .suggestion-text strong {
+            color: var(--button-color);
+        }
+
+        /* Search Results */
+        .search-results-header {
+            font-size: 0.85rem;
+            color: var(--hint-color);
+            margin-bottom: 12px;
+            padding-left: 4px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--hint-color);
+        }
+
+        .empty-state .emoji {
+            font-size: 3rem;
+            margin-bottom: 12px;
+        }
+
+        /* Total Badge */
+        .total-badge {
+            text-align: center;
+            color: var(--hint-color);
+            font-size: 0.8rem;
+            margin-top: 20px;
+            padding-bottom: 20px;
+        }
+
+        /* Mini loader */
+        .mini-loader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 0;
+            gap: 12px;
+        }
+
+        .mini-loader .spinner {
+            width: 28px;
+            height: 28px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--button-color, #248bcf);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .mini-loader p {
+            font-size: 0.85rem;
+            color: var(--hint-color);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loader" class="loader-container">
+        <div class="spinner"></div>
+        <p>Loading catalog...</p>
+    </div>
+
+    <div id="app" class="hidden">
+        <header>
+            <h1>📋 Business Catalog</h1>
+        </header>
+
+        <!-- Services View -->
+        <div id="services-view">
+            <div class="search-container">
+                <input type="text" id="search-input" class="search-input" placeholder="Search services...">
+            </div>
+            <div id="suggestion-area"></div>
+            <div id="service-grid" class="service-grid"></div>
+            <div id="total-badge" class="total-badge"></div>
+        </div>
+
+        <!-- Locations View -->
+        <div id="locations-view" class="hidden location-view">
+            <div class="view-header">
+                <button id="loc-back-btn" class="back-btn">←</button>
+                <span id="location-title" class="view-title"></span>
+            </div>
+            <div id="location-list" class="location-list"></div>
+        </div>
+
+        <!-- Businesses View -->
+        <div id="businesses-view" class="hidden businesses-view">
+            <div class="view-header">
+                <button id="biz-back-btn" class="back-btn">←</button>
+                <span id="biz-title" class="view-title"></span>
+            </div>
+            <div id="biz-list" class="biz-list"></div>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        // Emoji map for common services
+        const EMOJI_MAP = {
+            'plumbing': '🔧', 'plumber': '🔧',
+            'catering': '🍽️', 'food': '🍽️', 'restaurant': '🍽️', 'cooking': '🍽️',
+            'cleaning': '🧹', 'laundry': '👔', 'dry cleaning': '👔',
+            'electrician': '⚡', 'electrical': '⚡',
+            'painting': '🎨', 'painter': '🎨',
+            'carpentry': '🪚', 'carpenter': '🪚', 'furniture': '🪑',
+            'mechanic': '🔩', 'auto repair': '🔩', 'car repair': '🔩',
+            'barber': '💈', 'barbing': '💈', 'haircut': '💈',
+            'salon': '💇', 'hair': '💇', 'hairdressing': '💇', 'hairstylist': '💇',
+            'makeup': '💄', 'beauty': '💄',
+            'photography': '📸', 'photographer': '📸',
+            'tailoring': '🧵', 'tailor': '🧵', 'fashion': '👗', 'fashion design': '👗',
+            'tech': '💻', 'software': '💻', 'web': '💻', 'developer': '💻', 'programming': '💻',
+            'graphics': '🎯', 'graphic design': '🎯', 'design': '🎯',
+            'tutoring': '📚', 'teaching': '📚', 'lesson': '📚', 'teacher': '📚',
+            'delivery': '🚚', 'logistics': '🚚', 'dispatch': '🚚',
+            'security': '🔒', 'guard': '🔒',
+            'event': '🎉', 'events': '🎉', 'party': '🎉', 'dj': '🎵',
+            'real estate': '🏠', 'property': '🏠', 'housing': '🏠', 'agent': '🏠',
+            'printing': '🖨️', 'print': '🖨️',
+            'phone repair': '📱', 'phone': '📱',
+            'fitness': '💪', 'gym': '💪', 'trainer': '💪',
+            'massage': '💆', 'spa': '💆',
+            'baking': '🍰', 'cake': '🍰', 'pastry': '🍰',
+            'farming': '🌾', 'agriculture': '🌾',
+            'welding': '🔥', 'welder': '🔥',
+            'driving': '🚗', 'driver': '🚗',
+            'medical': '⚕️', 'doctor': '⚕️', 'health': '⚕️', 'nurse': '⚕️',
+            'law': '⚖️', 'lawyer': '⚖️', 'legal': '⚖️',
+            'accounting': '📊', 'finance': '📊'
+        };
+
+        // Avatar background colors
+        const AVATAR_COLORS = [
+            '#E17055', '#00B894', '#6C5CE7', '#FDCB6E',
+            '#0984E3', '#D63031', '#00CEC9', '#E84393',
+            '#2D3436', '#636E72', '#A29BFE', '#55EFC4'
+        ];
+
+        function getServiceEmoji(serviceName) {
+            const lower = serviceName.toLowerCase();
+            if (EMOJI_MAP[lower]) return EMOJI_MAP[lower];
+            for (const [key, emoji] of Object.entries(EMOJI_MAP)) {
+                if (lower.includes(key) || key.includes(lower)) return emoji;
+            }
+            return '🏢';
+        }
+
+        function getAvatarColor(name) {
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+                hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+        }
+
+        function getAvatarInitial(name) {
+            return name.charAt(0).toUpperCase();
+        }
+
+        let allServices = [];
+        let currentService = '';
+        let currentLocation = '';
+        let searchTimeout = null;
+
+        // --- Back Button Management ---
+        function updateBackButton() {
+            const currentView = ['services-view', 'locations-view', 'businesses-view'].find(id =>
+                !document.getElementById(id).classList.contains('hidden')
+            );
+
+            if (currentView === 'services-view') {
+                tg.BackButton.hide();
+            } else {
+                tg.BackButton.show();
+            }
+        }
+
+        tg.onEvent('backButtonClicked', () => {
+            const locView = document.getElementById('locations-view');
+            const bizView = document.getElementById('businesses-view');
+
+            if (!bizView.classList.contains('hidden')) {
+                showLocations(currentService);
+            } else if (!locView.classList.contains('hidden')) {
+                showView('services-view');
+            }
+        });
+
+        // ==================== VIEWS ====================
+
+        function showView(viewId) {
+            ['services-view', 'locations-view', 'businesses-view'].forEach(id => {
+                document.getElementById(id).classList.toggle('hidden', id !== viewId);
+            });
+            updateBackButton();
+        }
+
+        // ==================== LOAD CATALOG ====================
+
+        async function loadCatalog() {
+            try {
+                const res = await fetch('/api/catalog', {
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
+                const data = await res.json();
+
+                allServices = data.services;
+                renderServices(allServices); // ✅ Populate grid first so it's ready when user goes back
+
+                // ✅ NEW: Handle Return State/Deep Linking
+                const urlParams = new URLSearchParams(window.location.search);
+                const svcParam = urlParams.get('service');
+                const locParam = urlParams.get('location');
+
+                if (svcParam && locParam) {
+                    currentService = svcParam; // Set context
+                    await showBusinesses(svcParam, locParam);
+                } else if (svcParam) {
+                    await showLocations(svcParam);
+                } else {
+                    showView('services-view');
+                }
+
+                document.getElementById('total-badge').textContent =
+                    `${data.total} businesses · ${allServices.length} services`;
+
+                document.getElementById('loader').classList.add('hidden');
+                document.getElementById('app').classList.remove('hidden');
+            } catch (e) {
+                document.getElementById('loader').querySelector('p').textContent =
+                    'Failed to load catalog';
+            }
+        }
+
+        // ==================== SERVICES ====================
+
+        function renderServices(services) {
+            const grid = document.getElementById('service-grid');
+            grid.innerHTML = '';
+
+            if (services.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state" style="grid-column: span 2;">
+                        <div class="emoji">🔍</div>
+                        <p>No services found</p>
+                    </div>
+                `;
+                return;
+            }
+
+            services.forEach(svc => {
+                const card = document.createElement('div');
+                card.className = 'service-card';
+                card.innerHTML = `
+                    <span class="service-emoji">${getServiceEmoji(svc.name)}</span>
+                    <span class="service-name">${svc.name}</span>
+                `;
+                card.addEventListener('click', () => showLocations(svc.name));
+                grid.appendChild(card);
+            });
+        }
+
+        // ==================== LOCATIONS ====================
+
+        async function showLocations(serviceName) {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            currentService = serviceName;
+
+            showView('locations-view');
+            document.getElementById('location-title').textContent = `${getServiceEmoji(serviceName)} ${serviceName}`;
+
+            const list = document.getElementById('location-list');
+            list.innerHTML = `<div class="mini-loader"><div class="spinner"></div><p>Loading locations...</p></div>`;
+
+            try {
+                const res = await fetch(`/api/catalog?service=${encodeURIComponent(serviceName)}`, {
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
+                const data = await res.json();
+                list.innerHTML = '';
+
+                if (data.locations.length === 0) {
+                    list.innerHTML = `
+                        <div class="empty-state">
+                            <div class="emoji">📍</div>
+                            <p>No locations listed yet</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                data.locations.forEach(loc => {
+                    const item = document.createElement('div');
+                    item.className = 'location-item';
+                    item.innerHTML = `
+                        <span class="location-icon">📍</span>
+                        <div class="location-info">
+                            <div class="location-name">${loc}</div>
+                        </div>
+                        <span class="location-arrow">›</span>
+                    `;
+                    item.addEventListener('click', () => showBusinesses(serviceName, loc));
+                    list.appendChild(item);
+                });
+            } catch (e) {
+                list.innerHTML = `<div class="empty-state"><p>Failed to load locations</p></div>`;
+            }
+        }
+
+        // ==================== BUSINESSES ====================
+
+        async function showBusinesses(serviceName, locationName) {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            currentLocation = locationName;
+
+            showView('businesses-view');
+            document.getElementById('biz-title').textContent =
+                `${getServiceEmoji(serviceName)} ${serviceName} in ${locationName}`;
+
+            const list = document.getElementById('biz-list');
+            list.innerHTML = `<div class="mini-loader"><div class="spinner"></div><p>Loading businesses...</p></div>`;
+
+            try {
+                const res = await fetch(
+                    `/api/catalog?service=${encodeURIComponent(serviceName)}&location=${encodeURIComponent(locationName)}`,
+                    { headers: { 'ngrok-skip-browser-warning': 'true' } }
+                );
+                const data = await res.json();
+                renderBusinessList(list, data.businesses);
+            } catch (e) {
+                list.innerHTML = `<div class="empty-state"><p>Failed to load businesses</p></div>`;
+            }
+        }
+
+        function renderBusinessList(container, businesses) {
+            container.innerHTML = '';
+
+            if (businesses.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="emoji">🏢</div>
+                        <p>No businesses found</p>
+                    </div>
+                `;
+                return;
+            }
+
+            businesses.forEach(biz => {
+                const item = document.createElement('div');
+                item.className = `biz-item${biz.is_boosted ? ' boosted' : ''}`;
+                const color = getAvatarColor(biz.business_name);
+                const initial = getAvatarInitial(biz.business_name);
+                const emoji = getServiceEmoji(biz.service);
+
+                item.innerHTML = `
+                    <div class="biz-avatar" style="background:${color}">
+                        ${initial}
+                    </div>
+                    <div class="biz-info">
+                        <div class="biz-name-row">
+                            <span class="biz-name">${biz.business_name}</span>
+                            ${biz.is_boosted ? '<span class="biz-boost-badge">⭐ Featured</span>' : ''}
+                        </div>
+                        <div class="biz-subtitle">${emoji} ${biz.service}${biz.location ? ' · 📍 ' + biz.location : ''}</div>
+                    </div>
+                    <span class="biz-arrow">›</span>
+                `;
+                item.addEventListener('click', () => openBusiness(biz.id));
+                container.appendChild(item);
+            });
+        }
+
+        function openBusiness(bizId) {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const uid = urlParams.get('uid') || '';
+            const user = tg.initDataUnsafe.user;
+            const customerId = (user && user.id) ? user.id : uid;
+
+            // ✅ NEW: Pass context back to business profile
+            let url = `business.html?id=${bizId}&uid=${customerId}`;
+            if (currentService) url += `&service=${encodeURIComponent(currentService)}`;
+            if (currentLocation) url += `&location=${encodeURIComponent(currentLocation)}`;
+
+            window.location.href = url;
+        }
+
+        // ==================== HYBRID SEARCH ====================
+
+        async function performSearch(query) {
+            const grid = document.getElementById('service-grid');
+            const totalBadge = document.getElementById('total-badge');
+            const suggestionArea = document.getElementById('suggestion-area');
+
+            if (!query) {
+                // Reset to default
+                suggestionArea.innerHTML = '';
+                grid.classList.remove('hidden');
+                totalBadge.classList.remove('hidden');
+                renderServices(allServices);
+                return;
+            }
+
+            // Local filter of services first (instant)
+            const localFiltered = allServices.filter(s =>
+                s.name.toLowerCase().includes(query.toLowerCase())
+            );
+            renderServices(localFiltered);
+
+            // Then do API search for semantic suggestions and categories
+            try {
+                const res = await fetch(`/api/catalog/search?q=${encodeURIComponent(query)}`, {
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
+                const data = await res.json();
+
+                // Show suggestion banner
+                suggestionArea.innerHTML = '';
+                if (data.suggestions && data.suggestions.length > 0) {
+                    data.suggestions.forEach(sug => {
+                        const banner = document.createElement('div');
+                        banner.className = 'suggestion-banner';
+                        banner.innerHTML = `
+                            <span class="suggestion-icon">💡</span>
+                            <span class="suggestion-text">Did you mean <strong>${sug}</strong>?</span>
+                        `;
+                        banner.addEventListener('click', () => {
+                            document.getElementById('search-input').value = sug;
+                            performSearch(sug);
+                        });
+                        suggestionArea.appendChild(banner);
+                    });
+                }
+
+                // If API returned matched categories that weren't in our local filter (synonym matches)
+                if (data.categories && data.categories.length > 0) {
+                    // Combine with local filter and remove duplicates
+                    const combined = [...localFiltered];
+                    data.categories.forEach(apiSvc => {
+                        if (!combined.some(s => s.name.toLowerCase() === apiSvc.name.toLowerCase())) {
+                            combined.push(apiSvc);
+                        }
+                    });
+                    renderServices(combined);
+                }
+            } catch (e) {
+                console.error('Search error:', e);
+            }
+        }
+
+        // ==================== EVENT LISTENERS ====================
+
+        // Search with debounce
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            const query = e.target.value.trim();
+            searchTimeout = setTimeout(() => performSearch(query), 300);
+        });
+
+        // Back buttons
+        document.getElementById('loc-back-btn').addEventListener('click', () => {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            showView('services-view');
+        });
+
+        document.getElementById('biz-back-btn').addEventListener('click', () => {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            showLocations(currentService);
+        });
+
+        // Init
+        loadCatalog();
+    </script>
+</body>
+
+</html>

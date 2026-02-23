@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Report Business</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Inherit from style.css or define here for standalone */
+            --bg-color: #0B0F19;
+            --secondary-bg: #111827;
+            --text-color: #F1F5F9;
+            --hint-color: #94A3B8;
+            --primary: #38BDF8;
+            --border-color: #000000;
+            --neo-border: 4px solid #000000;
+            --neo-shadow: 6px 6px 0px #000000;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            padding: 24px;
+            min-height: 100vh;
+        }
+
+        .header h1 {
+            font-size: 1.4rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--primary);
+        }
+
+        .back-btn {
+            background: var(--primary);
+            border: 2px solid #000;
+            color: #000;
+            padding: 8px 12px;
+            font-weight: 900;
+            cursor: pointer;
+            box-shadow: 4px 4px 0px #000;
+            margin-right: 8px;
+        }
+
+        .biz-preview {
+            background: var(--secondary-bg);
+            padding: 20px;
+            border: var(--neo-border);
+            box-shadow: var(--neo-shadow);
+            margin-bottom: 30px;
+        }
+
+        .biz-name {
+            font-weight: 900;
+            text-transform: uppercase;
+            font-size: 1.1rem;
+            color: var(--text-color);
+        }
+
+        .biz-id {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-top: 4px;
+        }
+
+        label {
+            display: block;
+            font-weight: 900;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            color: var(--primary);
+            margin-bottom: 12px;
+            letter-spacing: 1px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 180px;
+            padding: 16px;
+            border: var(--neo-border);
+            background: var(--secondary-bg);
+            color: var(--text-color);
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 700;
+            box-shadow: var(--neo-shadow);
+            outline: none;
+            margin-bottom: 32px;
+        }
+
+        textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 6px 6px 0px var(--primary);
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 18px;
+            background: var(--primary);
+            color: #000;
+            border: var(--neo-border);
+            font-weight: 900;
+            font-size: 1rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: var(--neo-shadow);
+            transition: all 0.1s;
+        }
+
+        .submit-btn:active {
+            transform: translate(3px, 3px);
+            box-shadow: 2px 2px 0px #000;
+        }
+
+        .submit-btn:disabled {
+            background: #555;
+            color: #888;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .success-view {
+            text-align: center;
+            padding: 80px 24px;
+        }
+
+        .success-icon {
+            font-size: 80px;
+            margin-bottom: 30px;
+            filter: drop-shadow(4px 4px 0px #000);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="form-view">
+        <div class="header">
+            <button class="back-btn" onclick="handleBack()">←</button>
+            <h1>Report Case</h1>
+        </div>
+
+        <div class="biz-preview">
+            <div class="biz-name" id="display-name">Loading business...</div>
+            <div class="biz-id" id="display-id">ID: --</div>
+        </div>
+
+        <label for="reason">Describe the reason for reporting</label>
+        <textarea id="reason" placeholder="Please provide details about the scam or issue..."></textarea>
+
+        <button class="submit-btn" id="submit-btn" onclick="submitReport()">Submit Report</button>
+    </div>
+
+    <div id="success-view" class="success-view">
+        <div class="success-icon">✅</div>
+        <h2>Report Sent</h2>
+        <p style="margin-top: 12px; color: var(--hint-color);">The admin has been notified and will investigate this
+            case.</p>
+        <button class="submit-btn" style="margin-top: 32px;" onclick="handleBack()">Back to Business</button>
+    </div>
+
+    <script>
+        const WebApp = window.Telegram.WebApp;
+        WebApp.expand();
+        WebApp.ready();
+
+        // Apply dark theme if needed
+        if (WebApp.colorScheme === 'dark') {
+            document.body.classList.add('tg-dark');
+        }
+
+        // Native Back Button
+        WebApp.BackButton.show();
+        WebApp.onEvent('backButtonClicked', handleBack);
+
+        // Parse URL params
+        const params = new URLSearchParams(window.location.search);
+        const businessId = params.get('id');
+        const customerId = params.get('uid');
+        const serviceContext = params.get('service');
+        const locationContext = params.get('location');
+
+        // Initial Data Fetch/Display
+        let businessName = "Unknown Business";
+
+        async function init() {
+            if (!businessId) {
+                WebApp.showAlert('Missing business ID');
+                return;
+            }
+
+            try {
+                const resp = await fetch(`/api/business/${businessId}`, {
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    businessName = data.business_name;
+                    document.getElementById('display-name').textContent = businessName;
+                    document.getElementById('display-id').textContent = `ID: ${businessId}`;
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function handleBack() {
+            // Include all params to keep the hierarchy
+            let url = `business.html?id=${businessId}&uid=${customerId || ''}`;
+            if (serviceContext) url += `&service=${encodeURIComponent(serviceContext)}`;
+            if (locationContext) url += `&location=${encodeURIComponent(locationContext)}`;
+            window.location.href = url;
+        }
+
+        async function submitReport() {
+            const reason = document.getElementById('reason').value.trim();
+            if (!reason) {
+                WebApp.showAlert('Please describe the reason for reporting.');
+                return;
+            }
+
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
+            btn.textContent = 'Submitting...';
+
+            try {
+                const resp = await fetch('/api/business/report', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    },
+                    body: JSON.stringify({
+                        business_id: businessId,
+                        reporter_id: customerId || (WebApp.initDataUnsafe.user ? WebApp.initDataUnsafe.user.id : null),
+                        reason: reason
+                    })
+                });
+
+                if (resp.ok) {
+                    document.getElementById('form-view').style.display = 'none';
+                    document.getElementById('success-view').style.display = 'block';
+                    WebApp.HapticFeedback.notificationOccurred('success');
+                } else {
+                    const err = await resp.json();
+                    throw new Error(err.detail || 'Submission failed');
+                }
+            } catch (err) {
+                WebApp.showAlert('Error: ' + err.message);
+                btn.disabled = false;
+                btn.textContent = 'Submit Report';
+            }
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
