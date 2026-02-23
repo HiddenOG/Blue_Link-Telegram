@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>BlueBot Dashboard</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div id="loader" class="loader-container">
+        <div class="spinner"></div>
+        <p>Loading your stats...</p>
+    </div>
+
+    <div id="app" class="hidden">
+        <header>
+            <div class="user-info">
+                <img id="user-photo" src="" alt="" class="hidden">
+                <h1 id="welcome-msg">Hi, User!</h1>
+            </div>
+            <div class="coin-badge">
+                <span class="coin-icon">💰</span>
+                <span id="coin-balance">0</span>
+            </div>
+        </header>
+
+        <main>
+            <section class="business-selector">
+                <select id="biz-select" class="premium-select">
+                    <!-- Loaded dynamically -->
+                </select>
+            </section>
+
+            <section class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-label">Total Requests</span>
+                    <span id="stat-requests" class="stat-value">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Lead Clicks</span>
+                    <span id="stat-clicks" class="stat-value">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Conversion</span>
+                    <span id="stat-conversion" class="stat-value">0%</span>
+                </div>
+            </section>
+
+            <section class="chart-container card">
+                <h3>Activity (Last 7 Days)</h3>
+                <canvas id="analyticsChart"></canvas>
+            </section>
+
+            <section class="details-section card">
+                <h3>Business Info</h3>
+                <div class="info-row">
+                    <span class="label">Service:</span>
+                    <span id="info-service">...</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Location:</span>
+                    <span id="info-location">...</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Status:</span>
+                    <span id="info-boost" class="boost-badge">...</span>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <button id="edit-btn" class="premium-button">📝 Edit Business</button>
+            <button id="close-btn" class="premium-button secondary">Back to Chat</button>
+        </footer>
+
+    </div>
+
+    <div id="error-view" class="hidden">
+        <div class="error-container">
+            <span class="error-icon">📋</span>
+            <h2>No business yet</h2>
+            <p id="error-msg">Register your business to get started!</p>
+        </div>
+    </div>
+
+    <!-- Edit View -->
+    <div id="edit-view" class="hidden">
+        <header>
+            <button id="edit-back-btn" class="back-link">← Back</button>
+            <h1>Edit Business</h1>
+        </header>
+
+        <form id="edit-form" class="card">
+            <div class="form-group">
+                <label for="edit-name">Business Name</label>
+                <input type="text" id="edit-name" name="business_name" required>
+            </div>
+
+            <div class="form-group">
+                <label for="edit-service">Service Offered</label>
+                <input type="text" id="edit-service" name="business_services" required>
+            </div>
+
+            <div class="form-group">
+                <label for="edit-location">Location</label>
+                <input type="text" id="edit-location" name="business_location" required>
+            </div>
+
+            <div class="form-group">
+                <label for="edit-phone">Phone Number</label>
+                <input type="text" id="edit-phone" name="phone_number" required>
+            </div>
+
+            <div class="form-group">
+                <label for="edit-description">Description</label>
+                <textarea id="edit-description" name="business_description" rows="4" required></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Photos</label>
+                <div id="photo-manager" class="photo-grid"></div>
+                <input type="file" id="photo-upload" accept="image/*" multiple style="display:none">
+                <button type="button" id="add-photo-btn" class="premium-button secondary"
+                    style="margin-top:8px; font-size:0.85rem; padding:10px 16px;">
+                    📷 Add Photo
+                </button>
+                <p style="font-size:0.75rem; color:var(--hint-color); margin-top:6px;">Max 3 photos. Tap ✕ to remove.
+                </p>
+            </div>
+
+            <div class="button-group">
+                <button type="submit" class="premium-button">Save Changes</button>
+                <button type="button" id="delete-btn" class="premium-button danger">Delete Business</button>
+            </div>
+        </form>
+    </div>
+
+
+    <script src="app.js?v=3"></script>
+</body>
+
+</html>
