@@ -60,6 +60,36 @@
         .hidden-input {
             display: none;
         }
+
+        .preview-item {
+            position: relative;
+            display: inline-block;
+        }
+
+        .remove-btn {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ff4d4d;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            z-index: 10;
+            transition: transform 0.1s;
+        }
+
+        .remove-btn:active {
+            transform: scale(0.9);
+        }
     </style>
 </head>
 
@@ -177,24 +207,54 @@
             const files = Array.from(e.target.files);
             if (files.length + selectedFiles.length > 3) {
                 tg.showAlert("You can only upload up to 3 photos.");
+                photoInput.value = ''; // Reset input
                 return;
             }
 
             files.forEach(file => {
                 if (selectedFiles.length >= 3) return;
                 selectedFiles.push(file);
+            });
 
+            renderPreviews();
+            photoInput.value = ''; // Reset input so same file can be selected again if removed
+            haptic.selectionChanged();
+        });
+
+        function renderPreviews() {
+            previewArea.innerHTML = '';
+            selectedFiles.forEach((file, index) => {
                 const reader = new FileReader();
                 reader.onload = (e) => {
+                    const container = document.createElement('div');
+                    container.className = 'preview-item';
+
                     const img = document.createElement('img');
                     img.src = e.target.result;
                     img.className = 'preview-img';
-                    previewArea.appendChild(img);
+
+                    const removeBtn = document.createElement('button');
+                    removeBtn.innerHTML = '×';
+                    removeBtn.className = 'remove-btn';
+                    removeBtn.type = 'button';
+                    removeBtn.onclick = (event) => {
+                        event.preventDefault();
+                        removePhoto(index);
+                    };
+
+                    container.appendChild(img);
+                    container.appendChild(removeBtn);
+                    previewArea.appendChild(container);
                 };
                 reader.readAsDataURL(file);
             });
-            haptic.selectionChanged();
-        });
+        }
+
+        function removePhoto(index) {
+            selectedFiles.splice(index, 1);
+            renderPreviews();
+            haptic.notificationOccurred('warning');
+        }
 
         document.getElementById('register-form').addEventListener('submit', async (e) => {
             e.preventDefault();
