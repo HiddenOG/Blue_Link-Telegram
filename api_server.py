@@ -11,6 +11,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+import cloudinary
+import cloudinary.uploader
 
 # Import bot modules
 from bot_state import (
@@ -23,6 +25,7 @@ from fastapi import UploadFile, File, Form
 from typing import List, Optional
 from datetime import datetime
 import io
+import time
 
 # Pillow is optional at runtime (but recommended). If missing in prod, we skip compression.
 try:
@@ -39,6 +42,22 @@ bot_instance = None
 load_dotenv()
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+
+# Cloudinary Configuration
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True
+)
+
+# Optional HEIC support for Pillow via pillow-heif
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+    logging.info("✅ HEIC support registered for Pillow via pillow-heif")
+except Exception:
+    logging.warning("⚠️ HEIC support (pillow-heif) not found, using original logic for local processing")
 
 app = FastAPI(title="BlueBot Dashboard API")
 
@@ -1300,7 +1319,10 @@ async def register_business(
     business_description: Optional[str] = Form(None),
     photos: List[UploadFile] = File(None)
 ):
-    logging.info(f"📝 Received registration request from frontend (RAW)")
+    photos_list = photos or []
+    logging.info(f"📝 Received registration request: photos_count={len(photos_list)}")
+    for p in photos_list:
+        logging.info(f"   - Photo: {p.filename} ({p.content_type})")
     
     # Determine user_id via initData or fallback
     resolved_user_id = None
@@ -1338,25 +1360,62 @@ async def register_business(
                 # Read file content
                 content = await photo.read()
 
-                # Telegram only accepts certain image formats for sendPhoto.
-                # If the client accidentally sends HEIC/HEIF, Telegram will reject it.
-                # We log enough info to debug and continue gracefully.
-                logging.info(
-                    f"📸 Upload received: name={photo.filename} type={photo.content_type} size={len(content) if content else 0}"
+                # Determine if format requires Cloudinary conversion (HEIC/HEIF)
+                is_heic = (
+                    photo.filename.lower().endswith(('.heic', '.heif')) or 
+                    photo.content_type in ['image/heic', 'image/heif']
                 )
 
-                # Downscale/compress to reduce Telegram timeouts
-                content = _compress_image_for_telegram(content, max_dim=1600, quality=82)
+                secure_url = None
+                if is_heic:
+                    # Cloudinary Upload (Handles HEIC conversion and optimization)
+                    try:
+                        logging.info(f"☁️ HEIC detected, using Cloudinary for {photo.filename}")
+                        # System clock seems to be lagging by ~1hr, use future timestamp to bypass 'Stale request'
+                        upload_timestamp = int(time.time()) + 3600 
+                        
+                        # Force 'jpg' format to ensure Telegram compatibility
+                        upload_result = cloudinary.uploader.upload(
+                            io.BytesIO(content),
+                            resource_type="image",
+                            folder="blue_link_uploads",
+                            timestamp=upload_timestamp,
+                            format="jpg"
+                        )
+                        secure_url = upload_result.get("secure_url")
+                        logging.info(f"✅ Cloudinary upload success: {secure_url}")
+                    except Exception as cloud_err:
+                        logging.error(f"❌ Cloudinary upload failed: {cloud_err}")
+                        secure_url = None
+                else:
+                    logging.info(f"🖼️ Standard format detected ({photo.content_type}), bypassing Cloudinary: {photo.filename}")
 
-                # Send to user to get file_id (silent)
-                # Use BytesIO so telegram library can stream it properly
+                # Always send bytes to Telegram (Telegram often can't fetch Cloudinary URLs reliably)
+                # Cloudinary is used only for HEIC/HEIF decode + conversion to JPEG.
+                if secure_url:
+                    try:
+                        import httpx
+                        logging.info(f"📥 Downloading converted image from Cloudinary: {secure_url}")
+                        async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+                            resp = await client.get(secure_url, headers={"User-Agent": "Mozilla/5.0"})
+                        if resp.status_code != 200 or not resp.content:
+                            raise Exception(f"Cloudinary download failed: {resp.status_code}")
+                        send_bytes = resp.content
+                        logging.info(f"✅ Cloudinary download OK: {len(send_bytes)} bytes")
+                    except Exception as dl_err:
+                        logging.error(f"❌ Cloudinary download error, falling back to local compression: {dl_err}")
+                        send_bytes = _compress_image_for_telegram(content, max_dim=1600, quality=82)
+                else:
+                    send_bytes = _compress_image_for_telegram(content, max_dim=1600, quality=82)
+
                 msg = await bot_instance.send_photo(
                     chat_id=resolved_user_id,
-                    photo=io.BytesIO(content),
+                    photo=io.BytesIO(send_bytes),
                     caption=f"Processing upload: {photo.filename}..."
                 )
 
                 # Get largest photo file_id
+                logging.info(f"✅ Photo sent to Telegram, received message {msg.message_id}")
                 file_id = msg.photo[-1].file_id
                 photo_file_ids.append(file_id)
 
@@ -1467,3 +1526,4 @@ if __name__ == "__main__":
     import uvicorn
     # Local run for testing
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
