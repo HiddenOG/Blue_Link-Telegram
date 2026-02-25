@@ -124,7 +124,7 @@
             <div class="form-group">
                 <label>Photos</label>
                 <div id="photo-manager" class="photo-grid"></div>
-                <input type="file" id="photo-upload" accept="image/*" multiple style="display:none">
+                <input type="file" id="photo-upload" accept="image/*,.heic,.heif" multiple style="display:none">
                 <button type="button" id="add-photo-btn" class="premium-button secondary"
                     style="margin-top:8px; font-size:0.85rem; padding:10px 16px;">
                     📷 Add Photo
@@ -138,6 +138,11 @@
                 <button type="button" id="delete-btn" class="premium-button danger">Delete Business</button>
             </div>
         </form>
+
+        <div id="debug-log"
+            style="margin-top: 20px; padding: 10px; background: rgba(255,0,0,0.1); border-radius: 8px; font-size: 10px; font-family: monospace; white-space: pre-wrap; display: none;">
+            --- Debug Logs ---
+        </div>
     </div>
 
 
