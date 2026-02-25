@@ -1114,7 +1114,8 @@ async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"⚠️ No listed locations for *{selected_service}*.\n"
             "Type your location manually:",
-            parse_mode='Markdown'
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back to Services", callback_data="find_back_to_service")]])
         )
         return LOCATION
 
@@ -1127,9 +1128,12 @@ async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown',
         reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
     )
+    await update.message.reply_text(
+        "↩️ Changed your mind about the service?",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back to Services", callback_data="find_back_to_service")]])
+    )
 
     return LOCATION
-
 
 @cooldown_guard
 async def search_and_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1460,6 +1464,33 @@ async def fallback_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=get_main_keyboard(update.effective_user.id)
         )
     
+    return ConversationHandler.END
+
+
+async def handle_find_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle ⬅️ Back buttons in the Find Service flow."""
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+
+    if data == "find_back_to_service":
+        # Going back to service selection — clear saved service and locations
+        context.user_data.pop('service', None)
+        context.user_data.pop('locations', None)
+
+        rows = get_cached_businesses()
+        services = sorted({str(row.get('business_services', '')).strip() for row in rows if row.get('business_services')})
+        context.user_data['all_services'] = services
+
+        keyboard = [[s] for s in services]
+        keyboard.append(['Cancel'])
+
+        await query.message.reply_text(
+            "↩️ No problem! Which service do you need?\n(Choose below or type manually):",
+            reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+        )
+        return SERVICE_TYPE
+
     return ConversationHandler.END
 
 @cooldown_guard
@@ -4346,8 +4377,12 @@ def main():
             MessageHandler(filters.Regex(r'^/start\s+find'), find_service_start),
         ],
         states={
-            SERVICE_TYPE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_location)],
-            LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, search_and_reply)],
+            SERVICE_TYPE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_location),
+                          CallbackQueryHandler(handle_find_back, pattern="^find_back_")
+                          ],
+            LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, search_and_reply),
+                      CallbackQueryHandler(handle_find_back, pattern="^find_back_")
+                      ],
         },
         fallbacks=[
             CommandHandler(['find', 'register', 'dashboard'], warn_active_conversation),
@@ -4467,3 +4502,4 @@ def main():
 if __name__ == "__main__":
     logging.info("🚀 Bot is starting...")
     main()
+
