@@ -1129,7 +1129,6 @@ async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
     )
     await update.message.reply_text(
-        "↩️ Changed your mind about the service?",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back to Services", callback_data="find_back_to_service")]])
     )
 
@@ -1486,7 +1485,7 @@ async def handle_find_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard.append(['Cancel'])
 
         await query.message.reply_text(
-            "↩️ No problem! Which service do you need?\n(Choose below or type manually):",
+            "Which service do you need?\n(Choose below or type manually):",
             reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
         )
         return SERVICE_TYPE
@@ -4502,4 +4501,5 @@ def main():
 if __name__ == "__main__":
     logging.info("🚀 Bot is starting...")
     main()
+
 
