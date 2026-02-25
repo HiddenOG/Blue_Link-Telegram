@@ -668,12 +668,15 @@ async def upload_photo(
         if not bot_instance:
             raise HTTPException(status_code=503, detail="Bot not ready")
         
+        # Process photo using the shared helper (Handles HEIC conversion)
+        send_bytes = await _handle_photo_delivery(photo, photo_bytes)
+        
         # Send photo to Telegram to get a file_id (send to user's own chat)
         from telegram import InputFile
         import io
         msg = await bot_instance.send_photo(
             chat_id=user_id,
-            photo=io.BytesIO(photo_bytes),
+            photo=io.BytesIO(send_bytes),
             caption="📸 Photo updated via dashboard"
         )
         
@@ -1306,6 +1309,56 @@ def _compress_image_for_telegram(
         logging.warning(f"Image compress failed, using original bytes: {e}")
         return data
 
+async def _handle_photo_delivery(photo, content):
+    """
+    Shared helper for both registration and dashboard uploads.
+    Determines if HEIC conversion is needed and delivers final bytes.
+    """
+    filename = getattr(photo, 'filename', 'unknown')
+    content_type = getattr(photo, 'content_type', 'image/jpeg')
+    
+    is_heic = (
+        filename.lower().endswith(('.heic', '.heif')) or 
+        content_type in ['image/heic', 'image/heif']
+    )
+
+    secure_url = None
+    if is_heic:
+        try:
+            logging.info(f"☁️ HEIC detected, using Cloudinary for {filename}")
+            import time
+            upload_timestamp = int(time.time()) + 3600 
+            upload_result = cloudinary.uploader.upload(
+                io.BytesIO(content),
+                resource_type="image",
+                folder="blue_link_uploads",
+                timestamp=upload_timestamp,
+                format="jpg"
+            )
+            secure_url = upload_result.get("secure_url")
+            logging.info(f"✅ Cloudinary upload success: {secure_url}")
+        except Exception as cloud_err:
+            logging.error(f"❌ Cloudinary upload failed: {cloud_err}")
+            secure_url = None
+    else:
+        logging.info(f"🖼️ Standard format detected ({content_type}), bypassing Cloudinary: {filename}")
+
+    if secure_url:
+        try:
+            import httpx
+            logging.info(f"📥 Downloading converted image from Cloudinary: {secure_url}")
+            async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+                resp = await client.get(secure_url, headers={"User-Agent": "Mozilla/5.0"})
+            if resp.status_code != 200 or not resp.content:
+                raise Exception(f"Cloudinary download failed: {resp.status_code}")
+            logging.info(f"✅ Cloudinary download OK: {len(resp.content)} bytes")
+            return resp.content
+        except Exception as dl_err:
+            logging.error(f"❌ Cloudinary download error, falling back to local compression: {dl_err}")
+            return _compress_image_for_telegram(content)
+    else:
+        return _compress_image_for_telegram(content)
+
 
 @app.post("/api/register")
 async def register_business(
@@ -1360,53 +1413,8 @@ async def register_business(
                 # Read file content
                 content = await photo.read()
 
-                # Determine if format requires Cloudinary conversion (HEIC/HEIF)
-                is_heic = (
-                    photo.filename.lower().endswith(('.heic', '.heif')) or 
-                    photo.content_type in ['image/heic', 'image/heif']
-                )
-
-                secure_url = None
-                if is_heic:
-                    # Cloudinary Upload (Handles HEIC conversion and optimization)
-                    try:
-                        logging.info(f"☁️ HEIC detected, using Cloudinary for {photo.filename}")
-                        # System clock seems to be lagging by ~1hr, use future timestamp to bypass 'Stale request'
-                        upload_timestamp = int(time.time()) + 3600 
-                        
-                        # Force 'jpg' format to ensure Telegram compatibility
-                        upload_result = cloudinary.uploader.upload(
-                            io.BytesIO(content),
-                            resource_type="image",
-                            folder="blue_link_uploads",
-                            timestamp=upload_timestamp,
-                            format="jpg"
-                        )
-                        secure_url = upload_result.get("secure_url")
-                        logging.info(f"✅ Cloudinary upload success: {secure_url}")
-                    except Exception as cloud_err:
-                        logging.error(f"❌ Cloudinary upload failed: {cloud_err}")
-                        secure_url = None
-                else:
-                    logging.info(f"🖼️ Standard format detected ({photo.content_type}), bypassing Cloudinary: {photo.filename}")
-
-                # Always send bytes to Telegram (Telegram often can't fetch Cloudinary URLs reliably)
-                # Cloudinary is used only for HEIC/HEIF decode + conversion to JPEG.
-                if secure_url:
-                    try:
-                        import httpx
-                        logging.info(f"📥 Downloading converted image from Cloudinary: {secure_url}")
-                        async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
-                            resp = await client.get(secure_url, headers={"User-Agent": "Mozilla/5.0"})
-                        if resp.status_code != 200 or not resp.content:
-                            raise Exception(f"Cloudinary download failed: {resp.status_code}")
-                        send_bytes = resp.content
-                        logging.info(f"✅ Cloudinary download OK: {len(send_bytes)} bytes")
-                    except Exception as dl_err:
-                        logging.error(f"❌ Cloudinary download error, falling back to local compression: {dl_err}")
-                        send_bytes = _compress_image_for_telegram(content, max_dim=1600, quality=82)
-                else:
-                    send_bytes = _compress_image_for_telegram(content, max_dim=1600, quality=82)
+                # Process photo using the new shared helper (Handles HEIC conversion)
+                send_bytes = await _handle_photo_delivery(photo, content)
 
                 msg = await bot_instance.send_photo(
                     chat_id=resolved_user_id,
@@ -1526,5 +1534,6 @@ if __name__ == "__main__":
     import uvicorn
     # Local run for testing
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
