@@ -1,4 +1,46 @@
-const WebApp = window.Telegram.WebApp;
+const DEBUG = false;
+const debugLog = document.getElementById('debug-log');
+if (DEBUG) debugLog.style.display = 'block';
+
+function log(msg) {
+    console.log(msg);
+    try {
+        const time = new Date().toLocaleTimeString();
+        const logLine = document.createElement('div');
+        logLine.textContent = `[${time}] ${msg}`;
+        debugLog.appendChild(logLine);
+        debugLog.scrollTop = debugLog.scrollHeight;
+    } catch (e) {
+        console.error("Log failed", e);
+    }
+}
+
+window.onerror = function (msg, url, line, col, error) {
+    log(`CRASH: ${msg} at ${line}:${col}`);
+    return false;
+};
+
+window.onunhandledrejection = function (event) {
+    log(`REJECTION: ${event.reason}`);
+};
+
+// Safety check for Telegram object
+const WebApp = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : {
+    ready: () => { },
+    expand: () => { },
+    close: () => { window.close(); },
+    showAlert: (m) => alert(m),
+    showConfirm: (m, cb) => cb(confirm(m)),
+    platform: 'unknown',
+    initData: '',
+    initDataUnsafe: { user: { first_name: 'User' } },
+    HapticFeedback: {
+        notificationOccurred: () => { },
+        selectionChanged: () => { },
+        impactOccurred: () => { }
+    }
+};
+
 WebApp.expand();
 
 // DOM Elements
@@ -293,16 +335,37 @@ function renderPhotoManager() {
     photoState.newFiles.forEach((file, idx) => {
         const thumb = document.createElement('div');
         thumb.className = 'photo-thumb';
-        const img = document.createElement('img');
-        img.src = URL.createObjectURL(file);
-        img.alt = 'New photo';
+        
+        const isHeic = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
+        
+        if (isHeic) {
+            // HEIC Placeholder
+            const placeholder = document.createElement('div');
+            placeholder.className = 'heic-placeholder';
+            placeholder.style.width = '100%';
+            placeholder.style.height = '100%';
+            placeholder.style.display = 'flex';
+            placeholder.style.alignItems = 'center';
+            placeholder.style.justifyContent = 'center';
+            placeholder.style.background = '#333';
+            placeholder.style.borderRadius = '8px';
+            placeholder.style.fontSize = '12px';
+            placeholder.style.color = '#aaa';
+            placeholder.textContent = 'HEIC';
+            thumb.appendChild(placeholder);
+        } else {
+            const img = document.createElement('img');
+            img.src = URL.createObjectURL(file);
+            img.alt = 'New photo';
+            thumb.appendChild(img);
+        }
+        
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'remove-photo';
         btn.dataset.type = 'new';
         btn.dataset.index = idx;
         btn.textContent = '×';
-        thumb.appendChild(img);
         thumb.appendChild(btn);
         grid.appendChild(thumb);
     });
