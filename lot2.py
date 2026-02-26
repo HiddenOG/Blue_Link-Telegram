@@ -3973,6 +3973,107 @@ async def debug_cache(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(msg, parse_mode='Markdown')
 
+async def list_pending_registrations(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command to list and manage pending registrations"""
+    if int(update.effective_user.id) != int(ADMIN_ID):
+        await update.message.reply_text("❌ Unauthorized")
+        return
+
+    await update.message.reply_text("🔍 Fetching pending registrations...")
+    
+    # 1. Sync PENDING_REGISTRATIONS with Database
+    try:
+        result = await asyncio.to_thread(
+            lambda: supabase.table('pending_registrations').select('*').execute()
+        )
+        if result.data:
+            for item in result.data:
+                u_id = int(item['user_id'])
+                if u_id not in PENDING_REGISTRATIONS:
+                    try:
+                        PENDING_REGISTRATIONS[u_id] = json.loads(item['data'])
+                        logging.info(f"📦 Recovered {u_id} from DB into memory")
+                    except Exception as e:
+                        logging.error(f"Failed to parse data for {u_id}: {e}")
+    except Exception as e:
+        logging.error(f"Failed to sync pending registrations: {e}")
+
+    if not PENDING_REGISTRATIONS:
+        await update.message.reply_text("✅ No pending registrations found.")
+        return
+
+    count = 0
+    for user_id, data in PENDING_REGISTRATIONS.items():
+        count += 1
+        p_type = data.get('type', 'registration')
+        
+        # Build caption based on type
+        if p_type == 'registration':
+            caption = (
+                f"📢 *Pending Registration:*\n\n"
+                f"👤 {data.get('name')}\n"
+                f"🏪 {data.get('buis_name')}\n"
+                f"🛠 {data.get('service')}\n"
+                f"📍 {data.get('location')}\n"
+                f"📞 {data.get('phone')}\n"
+                f"📝 {data.get('description')}\n"
+                f"🆔 Telegram ID: {user_id}"
+            )
+            keyboard = [
+                [InlineKeyboardButton("✅ Approve", callback_data=f"approve_{user_id}"),
+                InlineKeyboardButton("❌ Reject", callback_data=f"reject_{user_id}")]
+            ]
+        elif p_type == 'upgrade':
+            caption = (
+                f"📢 *Pending Upgrade:*\n\n"
+                f"🏪 Business: {data.get('business_name')}\n"
+                f"🆔 Telegram ID: {user_id}\n"
+                f"📊 Requested Tier: Premium"
+            )
+            keyboard = [
+                [InlineKeyboardButton("✅ Approve Upgrade", callback_data=f"upgrade_approve_{user_id}"),
+                InlineKeyboardButton("❌ Reject", callback_data=f"upgrade_reject_{user_id}")]
+            ]
+        elif p_type == 'coin_purchase':
+            caption = (
+                f"📢 *Pending Coin Purchase:*\n\n"
+                f"💰 Amount: {data.get('coin_amount')} coins\n"
+                f"💵 Price: ₦{data.get('price', 0):,}\n"
+                f"🆔 Telegram ID: {user_id}"
+            )
+            keyboard = [
+                [InlineKeyboardButton("✅ Approve", callback_data=f"coin_approve_{user_id}"),
+                InlineKeyboardButton("❌ Reject", callback_data=f"coin_reject_{user_id}")]
+            ]
+        else:
+            # Generic/Other
+            caption = f"📢 *Pending request ({p_type})* for ID: {user_id}"
+            keyboard = []
+
+        # Send to admin
+        try:
+            photo_id = data.get('photo_1') or data.get('proof')
+            if photo_id:
+                await context.bot.send_photo(
+                    chat_id=ADMIN_ID,
+                    photo=photo_id,
+                    caption=caption,
+                    parse_mode="Markdown",
+                    reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
+                )
+            else:
+                await context.bot.send_message(
+                    chat_id=ADMIN_ID,
+                    text=caption,
+                    parse_mode="Markdown",
+                    reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
+                )
+        except Exception as e:
+            logging.error(f"Failed to send pending item for {user_id}: {e}")
+            await update.message.reply_text(f"⚠️ Error sending item for {user_id}: {e}")
+
+    await update.message.reply_text(f"🏁 Listed {count} pending item(s).")
+
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
@@ -4316,6 +4417,7 @@ def main():
     application.add_handler(CommandHandler('refresh', force_refresh_cache))
     application.add_handler(CommandHandler('check_expiry', force_expiry_check))
     application.add_handler(CommandHandler('auto_approve', force_auto_approve))
+    application.add_handler(CommandHandler('pending', list_pending_registrations)) # ✅ New Admin Command
     application.add_handler(CommandHandler('claim', claim_command))  # ✅ New Claim Command
     # --- Register Business conversation ---
     register_conv = ConversationHandler(
@@ -4493,5 +4595,6 @@ def main():
 if __name__ == "__main__":
     logging.info("🚀 Bot is starting...")
     main()
+
 
 
