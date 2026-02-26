@@ -4007,16 +4007,26 @@ async def list_pending_registrations(update: Update, context: ContextTypes.DEFAU
         count += 1
         p_type = data.get('type', 'registration')
         
+        # Helper to escape markdown
+        def esc(text):
+            if not text: return ""
+            return str(text).replace("*", "\\*").replace("_", "\\_").replace("`", "\\`").replace("[", "\\[")
+
         # Build caption based on type
         if p_type == 'registration':
+            # Truncate description if needed (Telegram caption limit is 1024)
+            desc = data.get('description', '')
+            if len(desc) > 500:
+                desc = desc[:497] + "..."
+                
             caption = (
                 f"📢 *Pending Registration:*\n\n"
-                f"👤 {data.get('name')}\n"
-                f"🏪 {data.get('buis_name')}\n"
-                f"🛠 {data.get('service')}\n"
-                f"📍 {data.get('location')}\n"
-                f"📞 {data.get('phone')}\n"
-                f"📝 {data.get('description')}\n"
+                f"👤 {esc(data.get('name'))}\n"
+                f"🏪 {esc(data.get('buis_name'))}\n"
+                f"🛠 {esc(data.get('service'))}\n"
+                f"📍 {esc(data.get('location'))}\n"
+                f"📞 {esc(data.get('phone'))}\n"
+                f"📝 {esc(desc)}\n"
                 f"🆔 Telegram ID: {user_id}"
             )
             keyboard = [
@@ -4026,7 +4036,7 @@ async def list_pending_registrations(update: Update, context: ContextTypes.DEFAU
         elif p_type == 'upgrade':
             caption = (
                 f"📢 *Pending Upgrade:*\n\n"
-                f"🏪 Business: {data.get('business_name')}\n"
+                f"🏪 Business: {esc(data.get('business_name'))}\n"
                 f"🆔 Telegram ID: {user_id}\n"
                 f"📊 Requested Tier: Premium"
             )
@@ -4047,7 +4057,7 @@ async def list_pending_registrations(update: Update, context: ContextTypes.DEFAU
             ]
         else:
             # Generic/Other
-            caption = f"📢 *Pending request ({p_type})* for ID: {user_id}"
+            caption = f"📢 *Pending request ({esc(p_type)})* for ID: {user_id}"
             keyboard = []
 
         # Send to admin
@@ -4595,6 +4605,7 @@ def main():
 if __name__ == "__main__":
     logging.info("🚀 Bot is starting...")
     main()
+
 
 
 
