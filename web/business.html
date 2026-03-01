@@ -892,7 +892,11 @@
             }
 
             try {
-                const resp = await fetch(`/api/business/${businessId}`, {
+                const viewerId = customerId || (WebApp.initDataUnsafe.user ? WebApp.initDataUnsafe.user.id : null);
+                const profileUrl = viewerId
+                    ? `/api/business/${businessId}?viewer_id=${viewerId}`
+                    : `/api/business/${businessId}`;
+                const resp = await fetch(profileUrl, {
                     headers: { 'ngrok-skip-browser-warning': 'true' }
                 });
                 if (!resp.ok) throw new Error('Business not found');
@@ -941,7 +945,7 @@
             if (!bizData.has_owner) {
                 document.getElementById('contact-status').innerHTML =
                     '<div class="legacy-badge">📜 Legacy listing — direct contact</div>';
-            } else if (bizData.owner_coins <= 0) {
+            } else if (!bizData.has_coins) {
                 const btn = document.getElementById('contact-btn');
                 btn.classList.add('out-of-coins');
                 btn.textContent = '⚠️ Business unavailable';
@@ -977,10 +981,7 @@
             }
 
             // Show three-dot menu only if viewer is NOT the business owner
-            const viewerId = customerId || (WebApp.initDataUnsafe.user ? String(WebApp.initDataUnsafe.user.id) : null);
-            const ownerId = bizData.owner_id;
-
-            if (viewerId && ownerId && viewerId === ownerId) {
+            if (bizData.is_own_business) {
                 // Owner viewing own business — hide Rate Us
                 menuEl.style.display = 'none';
             } else {
@@ -1046,13 +1047,15 @@
                         stars += `<span class="rc-star ${i <= r.stars ? 'filled' : ''}">★</span>`;
                     }
                     const date = new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    // Sanitize review text to prevent XSS
+                    const safeText = r.review_text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
                     return `
                         <div class="review-card">
                             <div class="review-card-header">
                                 <div class="review-card-stars">${stars}</div>
                                 <span class="review-card-date">${date}</span>
                             </div>
-                            <div class="review-card-text">${r.review_text}</div>
+                            <div class="review-card-text">${safeText}</div>
                         </div>
                     `;
                 }).join('');
@@ -1120,7 +1123,8 @@
                         business_id: parseInt(businessId),
                         reviewer_id: parseInt(reviewerId),
                         stars: selectedStars,
-                        review_text: reviewText
+                        review_text: reviewText,
+                        initData: WebApp.initData
                     })
                 });
 
@@ -1269,7 +1273,8 @@
                     },
                     body: JSON.stringify({
                         business_id: parseInt(businessId),
-                        customer_id: parseInt(customerId || (WebApp.initDataUnsafe.user ? WebApp.initDataUnsafe.user.id : null))
+                        customer_id: parseInt(customerId || (WebApp.initDataUnsafe.user ? WebApp.initDataUnsafe.user.id : null)),
+                        initData: WebApp.initData
                     })
                 });
 
@@ -1340,3 +1345,4 @@
 </body>
 
 </html>
+
