@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Register Business</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        /* Specific overrides for register page */
+        body {
+            padding-bottom: 40px;
+        }
+
+        .file-upload-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .file-upload-btn {
+            display: inline-block;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px dashed var(--hint-color);
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            color: var(--hint-color);
+            transition: all 0.2s;
+        }
+
+        .file-upload-btn:hover {
+            border-color: var(--button-color);
+            color: var(--button-color);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .preview-container {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .preview-img {
+            width: 70px;
+            height: 70px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        #submit-btn {
+            margin-top: 20px;
+        }
+
+        .hidden-input {
+            display: none;
+        }
+
+        .preview-item {
+            position: relative;
+            display: inline-block;
+        }
+
+        .preview-item.loading::after {
+            content: "Converting...";
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            background: rgba(0, 0, 0, 0.55);
+            border-radius: 8px;
+            text-align: center;
+            padding: 6px;
+        }
+
+        .convert-hint {
+            margin-top: 8px;
+            font-size: 12px;
+            color: var(--hint-color);
+            display: none;
+        }
+
+        .convert-hint.show {
+            display: block;
+        }
+
+        .remove-btn {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ff4d4d;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            z-index: 10;
+            transition: transform 0.1s;
+        }
+
+        .remove-btn:active {
+            transform: scale(0.9);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loader" class="loader-container hidden">
+        <div class="spinner"></div>
+        <p>Submitting registration...</p>
+    </div>
+
+    <div id="app">
+        <header>
+            <h1>Register Business</h1>
+        </header>
+
+        <form id="register-form" class="card">
+            <div class="form-group">
+                <label for="reg-name">Your Full Name</label>
+                <input type="text" id="reg-name" name="full_name" placeholder="e.g. John Doe" required>
+            </div>
+
+            <div class="form-group">
+                <label for="reg-business">Business Name</label>
+                <input type="text" id="reg-business" name="business_name" placeholder="e.g. John's Plumbing" required>
+            </div>
+
+            <div class="form-group">
+                <label for="reg-service">Service Offered</label>
+                <input type="text" id="reg-service" name="business_services" placeholder="e.g. Plumbing, Catering"
+                    required>
+            </div>
+
+            <div class="form-group">
+                <label for="reg-location">Location (City/State)</label>
+                <input type="text" id="reg-location" name="business_location" placeholder="e.g. Ikeja, Lagos" required>
+            </div>
+
+            <div class="form-group">
+                <label for="reg-phone">Phone Number (WhatsApp)</label>
+                <input type="tel" id="reg-phone" name="phone_number" placeholder="e.g. 08012345678" required
+                    pattern="\d{11}">
+            </div>
+
+            <div class="form-group">
+                <label for="reg-desc">Description</label>
+                <textarea id="reg-desc" name="business_description" rows="3" placeholder="Describe your services..."
+                    required></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Business Photos (Max 3)</label>
+                <div class="file-upload-container">
+                    <label class="file-upload-btn" style="position: relative; overflow: hidden;">
+                        📷 Tap to Upload Photos
+                        <input type="file" id="photo-input"
+                            style="position: absolute; font-size: 100px; right: 0; top: 0; opacity: 0; cursor: pointer;"
+                            accept="image/*,.heic,.heif" multiple>
+                    </label>
+                    <div id="preview-area" class="preview-container"></div>
+                    <div id="convert-hint" class="convert-hint">⏳ Please wait… converting images to be uploaded.</div>
+                </div>
+            </div>
+
+            <button type="submit" id="submit-btn" class="premium-button">🚀 Submit Registration</button>
+        </form>
+
+        <div id="debug-log"
+            style="margin-top: 20px; padding: 10px; background: rgba(255,0,0,0.1); border-radius: 8px; font-size: 10px; font-family: monospace; white-space: pre-wrap; display: none;">
+            --- Debug Logs ---
+        </div>
+    </div>
+
+    <div id="success-view" class="hidden" style="text-align: center; padding-top: 50px;">
+        <div style="font-size: 50px;">✅</div>
+        <h2>Registration Sent!</h2>
+        <p style="color: var(--hint-color); margin-top: 10px;">
+            Your business has been sent for admin approval.<br>
+            You will be notified via the bot soon.
+        </p>
+        <button onclick="closeWebApp()" class="premium-button secondary" style="margin-top: 30px;">Close</button>
+    </div>
+
+    <script>
+        const DEBUG = false;
+        const debugLog = document.getElementById('debug-log');
+        if (DEBUG) debugLog.style.display = 'block';
+
+        function log(msg) {
+            console.log(msg);
+            try {
+                const time = new Date().toLocaleTimeString();
+                const logLine = document.createElement('div');
+                logLine.textContent = `[${time}] ${msg}`;
+                debugLog.appendChild(logLine);
+                debugLog.scrollTop = debugLog.scrollHeight;
+            } catch (e) {
+                console.error("Log failed", e);
+            }
+        }
+
+        window.onerror = function (msg, url, line, col, error) {
+            log(`CRASH: ${msg} at ${line}:${col}`);
+            return false;
+        };
+
+        window.onunhandledrejection = function (event) {
+            log(`REJECTION: ${event.reason}`);
+        };
+
+        // Safety check for Telegram object
+        const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : {
+            expand: () => { },
+            close: () => { window.close(); },
+            enableClosingConfirmation: () => { },
+            platform: 'unknown',
+            initData: '',
+            initDataUnsafe: {},
+            showAlert: (m) => alert(m),
+            HapticFeedback: {
+                notificationOccurred: () => { },
+                selectionChanged: () => { },
+                impactOccurred: () => { }
+            }
+        };
+
+        function closeWebApp() {
+            try {
+                tg.close();
+            } catch (e) {
+                window.close();
+            }
+        }
+
+        try {
+            tg.expand();
+            tg.enableClosingConfirmation();
+        } catch (e) { log("WebApp config failed"); }
+
+        log(`Init: UA=${navigator.userAgent}`);
+        log(`Platform: ${tg.platform}`);
+
+        // Manual hash parsing fallback
+        function getInitData() {
+            try {
+                if (tg.initData) return tg.initData;
+                const match = window.location.href.match(/[\?#&]tgWebAppData=([^&]+)/);
+                if (match) return decodeURIComponent(match[1]);
+            } catch (e) { log(`initData error: ${e.message}`); }
+            return "";
+        }
+
+        const initDataRaw = getInitData();
+
+        if (!initDataRaw) {
+            console.warn("⚠️ No initData found. Using URL fallback if available.");
+        }
+
+        // Theme integration
+        try {
+            document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#1a1a1a');
+            document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color || '#ffffff');
+            document.documentElement.style.setProperty('--tg-theme-button-color', tg.themeParams.button_color || '#248bcf');
+            document.documentElement.style.setProperty('--tg-theme-button-text-color', tg.themeParams.button_text_color || '#ffffff');
+        } catch (e) { log(`Theme error: ${e.message}`); }
+
+        const photoInput = document.getElementById('photo-input');
+        const previewArea = document.getElementById('preview-area');
+        const convertHint = document.getElementById('convert-hint');
+
+        // We store files here
+        let selectedFiles = [];
+
+        // Haptic feedback safety
+        const haptic = tg.HapticFeedback || {};
+
+        photoInput.addEventListener('change', (e) => {
+            log("Selection event detected");
+            try {
+                const files = [].slice.call(e.target.files || []);
+                log(`Files selected: ${files.length}`);
+
+                if (files.length + selectedFiles.length > 3) {
+                    tg.showAlert ? tg.showAlert("Max 3 photos.") : alert("Max 3 photos.");
+                    photoInput.value = ''; // Reset input
+                    return;
+                }
+
+                for (let i = 0; i < files.length; i++) {
+                    if (selectedFiles.length >= 3) break;
+                    const file = files[i];
+                    log(`Adding file: ${file.name} (${file.type}, ${Math.round(file.size / 1024)}KB)`);
+                    selectedFiles.push(file);
+                }
+
+                renderPreviews();
+                photoInput.value = ''; // Reset input so same file can be selected again if removed
+                if (haptic.selectionChanged) haptic.selectionChanged();
+            } catch (err) { log(`Selection error: ${err.message}`); }
+        });
+
+        function renderPreviews() {
+            log(`Rendering ${selectedFiles.length} previews`);
+            previewArea.innerHTML = '';
+            selectedFiles.forEach((file, index) => {
+                const container = document.createElement('div');
+                container.className = 'preview-item';
+
+                const img = document.createElement('img');
+                img.className = 'preview-img';
+
+                try {
+                    const objectUrl = URL.createObjectURL(file);
+                    img.src = objectUrl;
+                    img.onload = () => {
+                        log(`Loaded preview for ${file.name}`);
+                        URL.revokeObjectURL(objectUrl);
+                    };
+                    img.onerror = () => {
+                        log(`Preview failed for ${file.name} (likely HEIC)`);
+                        // Replace img with a div placeholder if it fails
+                        const placeholder = document.createElement('div');
+                        placeholder.className = 'preview-img';
+                        placeholder.style.display = 'flex';
+                        placeholder.style.alignItems = 'center';
+                        placeholder.style.justifyContent = 'center';
+                        placeholder.style.background = 'rgba(255,255,255,0.1)';
+                        placeholder.style.fontSize = '12px';
+                        placeholder.style.color = '#999';
+                        placeholder.textContent = 'HEIC';
+                        img.replaceWith(placeholder);
+                    };
+                } catch (err) {
+                    log(`Object URL creation error: ${err.message}`);
+                }
+
+                const removeBtn = document.createElement('button');
+                removeBtn.innerHTML = '×';
+                removeBtn.className = 'remove-btn';
+                removeBtn.type = 'button';
+                removeBtn.onclick = (event) => {
+                    event.preventDefault();
+                    removePhoto(index);
+                };
+
+                container.appendChild(img);
+                container.appendChild(removeBtn);
+                previewArea.appendChild(container);
+            });
+        }
+
+        function removePhoto(index) {
+            log(`Removing photo index ${index}`);
+            selectedFiles.splice(index, 1);
+            renderPreviews();
+            if (haptic && haptic.notificationOccurred) haptic.notificationOccurred('warning');
+        }
+
+        document.getElementById('register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            log("Submit button triggered");
+
+            try {
+                // Defensive submit start
+                const submitBtn = document.getElementById('submit-btn');
+                const loader = document.getElementById('loader');
+                const formContainer = document.getElementById('app');
+                const successView = document.getElementById('success-view');
+
+                if (selectedFiles.length === 0) {
+                    log("Aborting: No photos selected");
+                    tg.showAlert("Please upload at least one photo.");
+                    return;
+                }
+
+                log(`Preparing to submit ${selectedFiles.length} files...`);
+                submitBtn.disabled = true;
+                submitBtn.innerText = "Processing...";
+                loader.classList.remove('hidden');
+                formContainer.style.opacity = '0.5';
+
+                const formData = new FormData();
+                log("FormData initialized");
+
+                formData.append('initData', initDataRaw);
+
+                const urlParams = new URLSearchParams(window.location.search);
+                const uidFromUrl = urlParams.get('uid');
+                const uidFromTg = tg.initDataUnsafe?.user?.id;
+                const fallbackUid = uidFromUrl || uidFromTg || '';
+                log(`Auth Check: fallbackUid=${fallbackUid}`);
+                if (fallbackUid) formData.append('user_id', fallbackUid);
+
+                // Append text fields
+                const formElements = e.target.elements;
+                formData.append('full_name', formElements.full_name.value);
+                formData.append('business_name', formElements.business_name.value);
+                formData.append('business_services', formElements.business_services.value);
+                formData.append('business_location', formElements.business_location.value);
+                formData.append('phone_number', formElements.phone_number.value);
+                formData.append('business_description', formElements.business_description.value);
+                log("Text fields appended");
+
+                // Append photos with individual catch
+                selectedFiles.forEach((file, idx) => {
+                    try {
+                        log(`Appending #${idx}: ${file.name} (${file.size} bytes)`);
+                        formData.append('photos', file);
+                        log(`Append #${idx} success`);
+                    } catch (f_err) {
+                        log(`FAILED to append #${idx}: ${f_err.message}`);
+                    }
+                });
+
+                log("Firing fetch request to /api/register...");
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                log(`Server Response Status: ${response.status}`);
+                const result = await response.json();
+
+                if (response.ok) {
+                    log("SUCCESS: Registration complete!");
+                    if (haptic && haptic.notificationOccurred) haptic.notificationOccurred('success');
+                    loader.classList.add('hidden');
+                    formContainer.classList.add('hidden');
+                    successView.classList.remove('hidden');
+                } else {
+                    let apiError = result.detail || 'Registration failed';
+                    if (Array.isArray(apiError)) apiError = apiError[0]?.msg || JSON.stringify(apiError);
+                    log(`API REJECTION: ${apiError}`);
+                    throw new Error(apiError);
+                }
+
+            } catch (error) {
+                log(`SUBMIT ERROR: ${error.message}`);
+                console.error(error);
+                if (haptic && haptic.notificationOccurred) haptic.notificationOccurred('error');
+                tg.showAlert(`Error: ${error.message}`);
+
+                const submitBtn = document.getElementById('submit-btn');
+                const loader = document.getElementById('loader');
+                const formContainer = document.getElementById('app');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = "🚀 Submit Registration";
+                }
+                if (loader) loader.classList.add('hidden');
+                if (formContainer) formContainer.style.opacity = '1';
+            }
+        });
+    </script>
+</body>
+
+</html>
