@@ -244,7 +244,8 @@
                     body: JSON.stringify({
                         business_id: businessId,
                         reporter_id: customerId || (WebApp.initDataUnsafe.user ? WebApp.initDataUnsafe.user.id : null),
-                        reason: reason
+                        reason: reason,
+                        initData: WebApp.initData
                     })
                 });
 
