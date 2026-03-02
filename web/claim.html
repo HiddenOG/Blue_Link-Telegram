@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Claim Your Business — BlueLink</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: #000;
+            color: #fff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* --- Loader --- */
+        .claim-loader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            gap: 16px;
+        }
+
+        .spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #248bcf;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* --- Error --- */
+        .claim-error {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            gap: 12px;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .claim-error .error-icon {
+            font-size: 3rem;
+        }
+
+        .claim-error h2 {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .claim-error p {
+            color: #888;
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+
+        /* --- Claim Page --- */
+        .claim-page {
+            display: none;
+            min-height: 100vh;
+            padding-bottom: 120px;
+        }
+
+        /* Header Accent */
+        .claim-header {
+            background: linear-gradient(135deg, #0a1628 0%, #162d50 50%, #0d1f3c 100%);
+            padding: 32px 20px 24px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .claim-header .bluelink-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(36, 139, 207, 0.15);
+            border: 1px solid rgba(36, 139, 207, 0.3);
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 0.78rem;
+            color: #248bcf;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .claim-header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .claim-header p {
+            color: #aaa;
+            font-size: 0.88rem;
+        }
+
+        /* Gallery */
+        .claim-gallery {
+            display: flex;
+            gap: 8px;
+            padding: 16px;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .claim-gallery::-webkit-scrollbar {
+            display: none;
+        }
+
+        .claim-gallery img {
+            width: 280px;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 14px;
+            scroll-snap-align: start;
+            flex-shrink: 0;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .no-photos {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 160px;
+            color: #555;
+            font-size: 0.9rem;
+        }
+
+        /* Business Card */
+        .biz-card {
+            margin: 0 16px;
+            padding: 20px;
+            background: #111;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .biz-card .biz-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .biz-card .biz-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .biz-card .biz-meta .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.88rem;
+            color: #ccc;
+        }
+
+        .biz-card .biz-meta .meta-icon {
+            font-size: 1rem;
+            width: 20px;
+            text-align: center;
+        }
+
+        .biz-card .biz-desc {
+            font-size: 0.88rem;
+            line-height: 1.6;
+            color: #999;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            padding-top: 14px;
+        }
+
+        /* Claim Button */
+        .claim-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 16px;
+            background: linear-gradient(to top, #000 60%, transparent);
+            z-index: 50;
+        }
+
+        .claim-btn {
+            display: flex;
+            width: 100%;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 16px;
+            border: none;
+            border-radius: 14px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            color: #fff;
+            background: linear-gradient(135deg, #248bcf, #1a6daa);
+            box-shadow: 0 6px 24px rgba(36, 139, 207, 0.35);
+            transition: all 0.2s;
+        }
+
+        .claim-btn:active {
+            transform: scale(0.97);
+        }
+
+        .claim-info-text {
+            text-align: center;
+            padding: 12px 16px 0;
+            font-size: 0.78rem;
+            color: #666;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Loader -->
+    <div id="loader" class="claim-loader">
+        <div class="spinner"></div>
+        <p style="color:#888; font-size:0.9rem;">Loading business details...</p>
+    </div>
+
+    <!-- Error -->
+    <div id="error-view" style="display:none;">
+        <div class="claim-error">
+            <span class="error-icon">⚠️</span>
+            <h2>Oops!</h2>
+            <p id="error-msg">Something went wrong.</p>
+        </div>
+    </div>
+
+    <!-- Claim Page -->
+    <div id="claim-page" class="claim-page">
+        <div class="claim-header">
+            <div class="bluelink-badge">🔗 BlueLink Business Directory</div>
+            <h1>Is this your business?</h1>
+            <p>Claim it to manage your listing on BlueLink</p>
+        </div>
+
+        <div class="claim-gallery" id="claim-gallery"></div>
+
+        <div class="biz-card">
+            <div class="biz-name" id="biz-name"></div>
+            <div class="biz-meta">
+                <div class="meta-item">
+                    <span class="meta-icon">🛠</span>
+                    <span id="biz-service"></span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-icon">📍</span>
+                    <span id="biz-location"></span>
+                </div>
+            </div>
+            <div class="biz-desc" id="biz-desc"></div>
+        </div>
+
+        <p class="claim-info-text">
+            Tapping "Claim" will open our Telegram bot and link this business to your account.
+            You'll be able to edit details, track leads, and manage your listing.
+        </p>
+
+        <div class="claim-footer">
+            <a class="claim-btn" id="claim-btn" href="#">
+                ✅ Claim This Business
+            </a>
+        </div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token');
+
+        if (!token) {
+            showError('No claim token found. Please use the link provided by BlueLink.');
+        } else {
+            loadClaimData();
+        }
+
+        async function loadClaimData() {
+            try {
+                const resp = await fetch(`/api/claim/${token}`, {
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    throw new Error(err.detail || 'Failed to load claim info');
+                }
+
+                const data = await resp.json();
+                renderClaim(data);
+
+            } catch (err) {
+                showError(err.message);
+            }
+        }
+
+        function renderClaim(data) {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('claim-page').style.display = 'block';
+
+            // Business info
+            document.getElementById('biz-name').textContent = data.business_name;
+            document.getElementById('biz-service').textContent = data.service;
+            document.getElementById('biz-location').textContent = data.location;
+
+            const descEl = document.getElementById('biz-desc');
+            if (data.description) {
+                descEl.textContent = data.description;
+            } else {
+                descEl.style.display = 'none';
+            }
+
+            // Photos
+            const gallery = document.getElementById('claim-gallery');
+            const photos = [data.photo_1, data.photo_2, data.photo_3].filter(Boolean);
+
+            if (photos.length > 0) {
+                photos.forEach(photoId => {
+                    const img = document.createElement('img');
+                    img.src = `/api/photo/${photoId}`;
+                    img.alt = data.business_name;
+                    img.loading = 'lazy';
+                    gallery.appendChild(img);
+                });
+            } else {
+                gallery.innerHTML = '<div class="no-photos">📷 No photos available</div>';
+            }
+
+            // Claim button — deep link
+            const claimBtn = document.getElementById('claim-btn');
+            if (data.bot_username) {
+                claimBtn.href = `https://t.me/${data.bot_username}?start=claim_${data.token}`;
+            } else {
+                claimBtn.href = '#';
+                claimBtn.textContent = '⚠️ Bot unavailable — try later';
+                claimBtn.style.opacity = '0.5';
+                claimBtn.style.pointerEvents = 'none';
+            }
+
+            // Page title
+            document.title = `Claim ${data.business_name} — BlueLink`;
+        }
+
+        function showError(msg) {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('error-view').style.display = 'block';
+            document.getElementById('error-msg').textContent = msg;
+        }
+    </script>
+</body>
+
+</html>
