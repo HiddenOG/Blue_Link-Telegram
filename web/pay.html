@@ -260,7 +260,7 @@
 
 <body>
     <!-- Payment View (Coins) -->
-    <div id="pay-view" class="pay-container">
+    <div id="pay-view" class="pay-container" style="display:none;">
         <div class="pay-header">
             <h1 id="pay-title">💎 Buy Blue Coins</h1>
             <p id="pay-subtitle">Secure payment via Paystack</p>
@@ -269,19 +269,19 @@
         <div class="order-card">
             <div class="order-row">
                 <span class="order-label">Item</span>
-                <span class="order-value" id="order-item">5 Blue Coins</span>
+                <span class="order-value" id="order-item">...</span>
             </div>
             <div class="order-row" id="coins-row">
                 <span class="order-label">Coins</span>
-                <span class="order-value" id="order-coins">5</span>
+                <span class="order-value" id="order-coins">...</span>
             </div>
             <div class="order-row">
                 <span class="order-label">Total</span>
-                <span class="order-value order-total" id="order-total">₦900</span>
+                <span class="order-value order-total" id="order-total">...</span>
             </div>
         </div>
 
-        <button class="pay-btn" id="pay-btn" onclick="startPayment()">
+        <button class="pay-btn" id="pay-btn" onclick="startPayment()" disabled>
             Pay Now
         </button>
         <button class="cancel-btn" onclick="cancelPayment()">Cancel</button>
@@ -371,14 +371,18 @@
         // Setup page based on type
         if (paymentType === 'boost') {
             // Hide coins view, show boost selection view
-            document.getElementById('pay-view').classList.add('hidden');
+            document.getElementById('pay-view').style.display = 'none';
             document.getElementById('boost-view').classList.remove('hidden');
             loadBoostBusinesses();
         } else {
+            // Set values from URL params FIRST, then show the view
             document.getElementById('pay-title').textContent = '💎 Buy Blue Coins';
             document.getElementById('order-item').textContent = `${coinAmount} Blue Coin${coinAmount > 1 ? 's' : ''}`;
             document.getElementById('order-coins').textContent = coinAmount;
             document.getElementById('order-total').textContent = `₦${amount.toLocaleString()}`;
+            // Now show the view and enable the button
+            document.getElementById('pay-view').style.display = '';
+            document.getElementById('pay-btn').disabled = false;
         }
 
         // === BOOST BUSINESS SELECTION ===
