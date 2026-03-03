@@ -341,7 +341,7 @@
             if (photos.length > 0) {
                 photos.forEach(photoId => {
                     const img = document.createElement('img');
-                    img.src = `/api/photo/${photoId}`;
+                    img.src = `/api/photo?file_id=${encodeURIComponent(photoId)}`;
                     img.alt = data.business_name;
                     img.loading = 'lazy';
                     gallery.appendChild(img);
