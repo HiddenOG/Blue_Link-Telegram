@@ -194,14 +194,17 @@ h3 {
 
 .info-tag {
     display: inline-block;
-    background: rgba(36, 139, 207, 0.15);
-    border: 1px solid rgba(36, 139, 207, 0.35);
-    color: #248bcf;
-    border-radius: 20px;
-    padding: 2px 10px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    margin: 2px 3px 2px 0;
+    color: var(--text-color);
+    font-size: 0.88rem;
+    margin: 1px 4px 1px 0;
+}
+
+.info-tag::after {
+    content: ', ';
+}
+
+.info-tag:last-child::after {
+    content: '';
 }
 
 /* Buttons */
