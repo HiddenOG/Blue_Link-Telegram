@@ -231,8 +231,16 @@ function updateBusinessView(index) {
     statClicks.innerText = analytics.whatsapp_clicks;
     statConversion.innerText = `${analytics.conversion}%`;
 
-    infoService.innerText = biz.service || 'N/A';
-    infoLocation.innerText = biz.location || 'N/A';
+    // Render service tags
+    const services = biz.services && biz.services.length ? biz.services : (biz.service ? biz.service.split(',').map(s => s.trim()).filter(Boolean) : []);
+    const locations = biz.locations && biz.locations.length ? biz.locations : (biz.location ? biz.location.split(',').map(l => l.trim()).filter(Boolean) : []);
+
+    infoService.innerHTML = services.length
+        ? services.map(s => `<span class="info-tag">${s}</span>`).join('')
+        : 'N/A';
+    infoLocation.innerHTML = locations.length
+        ? locations.map(l => `<span class="info-tag">${l}</span>`).join('')
+        : 'N/A';
 
     const boost = biz.boost_status || { active: false, message: 'Not Boosted' };
     infoBoost.innerText = boost.message;
@@ -294,8 +302,8 @@ function showEditPage() {
 
     // Pre-fill form
     document.getElementById('edit-name').value = biz.business_name;
-    document.getElementById('edit-service').value = biz.service;
-    document.getElementById('edit-location').value = biz.location;
+    document.getElementById('edit-service').value = (biz.services && biz.services.length) ? biz.services.join(', ') : (biz.service || '');
+    document.getElementById('edit-location').value = (biz.locations && biz.locations.length) ? biz.locations.join(', ') : (biz.location || '');
     document.getElementById('edit-phone').value = biz.phone;
     document.getElementById('edit-description').value = biz.description;
 
@@ -335,9 +343,9 @@ function renderPhotoManager() {
     photoState.newFiles.forEach((file, idx) => {
         const thumb = document.createElement('div');
         thumb.className = 'photo-thumb';
-        
+
         const isHeic = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
-        
+
         if (isHeic) {
             // HEIC Placeholder
             const placeholder = document.createElement('div');
@@ -359,7 +367,7 @@ function renderPhotoManager() {
             img.alt = 'New photo';
             thumb.appendChild(img);
         }
-        
+
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'remove-photo';
