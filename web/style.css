@@ -192,6 +192,18 @@ h3 {
     color: #00ff00;
 }
 
+.info-tag {
+    display: inline-block;
+    background: rgba(36, 139, 207, 0.15);
+    border: 1px solid rgba(36, 139, 207, 0.35);
+    color: #248bcf;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin: 2px 3px 2px 0;
+}
+
 /* Buttons */
 .premium-button {
     width: 100%;
