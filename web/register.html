@@ -385,9 +385,7 @@
                 const successView = document.getElementById('success-view');
 
                 if (selectedFiles.length === 0) {
-                    log("Aborting: No photos selected");
-                    tg.showAlert("Please upload at least one photo.");
-                    return;
+                    log("No photos selected — submitting without photos");
                 }
 
                 log(`Preparing to submit ${selectedFiles.length} files...`);
