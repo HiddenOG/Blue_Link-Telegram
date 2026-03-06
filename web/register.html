@@ -243,6 +243,8 @@
 
         function closeWebApp() {
             try {
+                // Disable closing confirmation so the button works immediately
+                if (tg.disableClosingConfirmation) tg.disableClosingConfirmation();
                 tg.close();
             } catch (e) {
                 window.close();
