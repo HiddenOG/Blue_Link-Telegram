@@ -1,4 +1,4 @@
-#lot.py supabase
+#lot.py
 
 from telegram import (
     Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, 
@@ -3230,7 +3230,7 @@ async def buy_coins_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
     )
     await update.message.reply_text(
-        "After payment, tap ⬅️ Back to choose another package or ❌ Cancel.",
+        "After payment, tap Back to choose another package or Cancel.",
         reply_markup=ReplyKeyboardMarkup(
             [["⬅️ Back to Packages"],
              ["❌ Cancel"]],
@@ -4951,6 +4951,7 @@ def main():
 if __name__ == "__main__":
     logging.info("🚀 Bot is starting...")
     main()
+
 
 
 
