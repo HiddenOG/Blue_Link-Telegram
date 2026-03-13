@@ -361,29 +361,40 @@
         const userId = params.get('uid') || '';
         const userEmail = params.get('email') || `user${userId}@gmail.com`;
 
-        // Get Paystack config from params
-        const PAYSTACK_PUBLIC_KEY = params.get('pkey') || '';
+        // Paystack public key — fetched from server (never in URL)
+        let PAYSTACK_PUBLIC_KEY = '';
 
         // Boost selection state
         let selectedBusinessId = null;
         let selectedBusinessName = null;
 
-        // Setup page based on type
-        if (paymentType === 'boost') {
-            // Hide coins view, show boost selection view
-            document.getElementById('pay-view').style.display = 'none';
-            document.getElementById('boost-view').classList.remove('hidden');
-            loadBoostBusinesses();
-        } else {
-            // Set values from URL params FIRST, then show the view
-            document.getElementById('pay-title').textContent = '💎 Buy Blue Coins';
-            document.getElementById('order-item').textContent = `${coinAmount} Blue Coin${coinAmount > 1 ? 's' : ''}`;
-            document.getElementById('order-coins').textContent = coinAmount;
-            document.getElementById('order-total').textContent = `₦${amount.toLocaleString()}`;
-            // Now show the view and enable the button
-            document.getElementById('pay-view').style.display = '';
-            document.getElementById('pay-btn').disabled = false;
-        }
+        // Fetch Paystack key from server, then initialize the page
+        (async function init() {
+            try {
+                const baseUrl = window.location.origin;
+                const resp = await fetch(`${baseUrl}/api/pay-config`, {
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
+                const cfg = await resp.json();
+                PAYSTACK_PUBLIC_KEY = cfg.public_key || '';
+            } catch (e) {
+                console.error('Failed to load payment config:', e);
+            }
+
+            // Setup page based on type
+            if (paymentType === 'boost') {
+                document.getElementById('pay-view').style.display = 'none';
+                document.getElementById('boost-view').classList.remove('hidden');
+                loadBoostBusinesses();
+            } else {
+                document.getElementById('pay-title').textContent = '💎 Buy Blue Coins';
+                document.getElementById('order-item').textContent = `${coinAmount} Blue Coin${coinAmount > 1 ? 's' : ''}`;
+                document.getElementById('order-coins').textContent = coinAmount;
+                document.getElementById('order-total').textContent = `₦${amount.toLocaleString()}`;
+                document.getElementById('pay-view').style.display = '';
+                document.getElementById('pay-btn').disabled = !PAYSTACK_PUBLIC_KEY;
+            }
+        })();
 
         // === BOOST BUSINESS SELECTION ===
         async function loadBoostBusinesses() {
