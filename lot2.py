@@ -3217,7 +3217,6 @@ async def buy_coins_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"&amount={price}&coins={coin_amount}"
         f"&uid={update.effective_user.id}"
         f"&name={encoded_name}"
-        f"&pkey={PAYSTACK_PUBLIC_KEY}"
     )
     logging.info(f"💰 Generated Coin Payment URL: {pay_url}")
     
@@ -3401,7 +3400,6 @@ async def boost_with_ads_start(update: Update, context: ContextTypes.DEFAULT_TYP
         f"&amount=2000"
         f"&uid={user_id}"
         f"&name={encoded_name}"
-        f"&pkey={PAYSTACK_PUBLIC_KEY}"
     )
     logging.info(f"💰 Generated Boost Payment URL: {pay_url}")
     
@@ -4953,6 +4951,7 @@ def main():
 if __name__ == "__main__":
     logging.info("🚀 Bot is starting...")
     main()
+
 
 
 
