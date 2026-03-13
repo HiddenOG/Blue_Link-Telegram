@@ -997,9 +997,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(businesses) > 3:
             welcome_message += f"\n  ...and {len(businesses) - 3} more"
         welcome_message += f"\n\n💰 Blue Coins: {coins}"
-
     
     await update.message.reply_text(welcome_message, reply_markup=markup, parse_mode='Markdown')
+    await update.message.reply_text(
+        "💬 *Ask me anything!*\nWhat do you want me to do for you? 😊",
+        parse_mode='Markdown'
+    )
     return ConversationHandler.END
 
 
@@ -4951,6 +4954,7 @@ def main():
 if __name__ == "__main__":
     logging.info("🚀 Bot is starting...")
     main()
+
 
 
 
