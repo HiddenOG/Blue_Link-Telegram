@@ -1538,12 +1538,12 @@ async def search_and_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if keyboard:
         await update.message.reply_text(
             reply, 
-            parse_mode='Markdown', 
+            parse_mode='HTML', 
             disable_web_page_preview=True,
             reply_markup=keyboard
         )
     else:
-        await update.message.reply_text(reply, parse_mode='Markdown', disable_web_page_preview=True)
+        await update.message.reply_text(reply, parse_mode='HTML', disable_web_page_preview=True)
     
     # Show upgrade button if user has free tier business
     if user_has_business(user_id) and user_is_free_tier(user_id):
@@ -1731,14 +1731,14 @@ async def fallback_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if keyboard:
                 await update.message.reply_text(
                     reply, 
-                    parse_mode='Markdown', 
+                    parse_mode='HTML', 
                     disable_web_page_preview=True,
                     reply_markup=keyboard
                 )
             else:
                 await update.message.reply_text(
                     reply, 
-                    parse_mode='Markdown', 
+                    parse_mode='HTML', 
                     disable_web_page_preview=True
                 )
             
