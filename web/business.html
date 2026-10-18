@@ -1269,7 +1269,8 @@
                     },
                     body: JSON.stringify({
                         business_id: parseInt(businessId),
-                        customer_id: parseInt(customerId || (WebApp.initDataUnsafe.user ? WebApp.initDataUnsafe.user.id : null))
+                        customer_id: parseInt(customerId || (WebApp.initDataUnsafe.user ? WebApp.initDataUnsafe.user.id : null)),
+                        initData: WebApp.initData
                     })
                 });
 

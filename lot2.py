@@ -11,6 +11,7 @@ from telegram.ext import (
     ContextTypes, ConversationHandler, CallbackQueryHandler,
     InlineQueryHandler
 )
+from telegram.error import NetworkError
 
 from difflib import get_close_matches
 from concurrent.futures import ThreadPoolExecutor
@@ -394,6 +395,36 @@ MAX_FACTS_PER_USER = 20
 
 REMEMBER_TAG_RE = re.compile(r'\[REMEMBER:\s*(.+?)\]', re.IGNORECASE)
 
+# --- Conversation Context Injection Helpers ---
+
+def _inject_user_message(user_id: int, text: str):
+    """Store the user's raw message into conversation memory for continuity."""
+    if user_id not in conversation_memory:
+        conversation_memory[user_id] = []
+    conversation_memory[user_id].append({"role": "user", "parts": [text]})
+    conversation_memory[user_id] = conversation_memory[user_id][-MAX_MEMORY_TURNS:]
+
+def _inject_search_context(user_id: int, service: str, location: str, result_count: int):
+    """
+    After a business search, store a brief summary into conversation_memory.
+    This allows Gemini to understand follow-up messages like:
+      'not Ikorodu — try Ikeja' or 'what about the first result?'
+    """
+    if result_count > 0:
+        summary = (
+            f"I searched for '{service}' in '{location}' and found {result_count} matching business(es). "
+            f"The user can now ask about those results, or correct the service/location."
+        )
+    else:
+        summary = (
+            f"I searched for '{service}' in '{location}' but found no matching businesses. "
+            f"The user may want to try a different location or service."
+        )
+    if user_id not in conversation_memory:
+        conversation_memory[user_id] = []
+    conversation_memory[user_id].append({"role": "model", "parts": [summary]})
+    conversation_memory[user_id] = conversation_memory[user_id][-MAX_MEMORY_TURNS:]
+
 async def load_user_facts_from_db():
     """Load all user facts from Supabase on startup."""
     global USER_FACTS
@@ -475,13 +506,13 @@ def store_response(query_type: str, query_text: str, response):
     }
     logging.info(f"💾 Cached: {query_type} '{query_text[:30]}...'")
 
-def ask_gemini_search_query(user_query, business_data):
+def ask_gemini_search_query(user_query, business_data, user_id=None):
     cached = get_cached_response("search", user_query)
     if cached is not None:
         return cached
-    
-    # Check global rate limit BEFORE Gemini call (no user context in search)
-    if not check_rate_limit(user_id=0):
+
+    # Check per-user rate limit BEFORE Gemini call
+    if not check_rate_limit(user_id=user_id):
         logging.error("❌ Rate limit hit - returning empty results")
         return []
     
@@ -570,11 +601,11 @@ Output:
         logging.error("Gemini search query error: %s", str(e))
         return []
 
-def smart_directory_search(query: str, top_k: int = 5):
+def smart_directory_search(query: str, top_k: int = 5, user_id=None):
     """Uses cached data instead of live Sheet queries."""
     # Get data from cache (instant, no API call)
     cached_businesses = get_cached_businesses()
-    
+
     if not cached_businesses:
         logging.warning("Cache is empty, using fallback...")
         # Fallback: use old method if cache is empty
@@ -582,14 +613,14 @@ def smart_directory_search(query: str, top_k: int = 5):
         if not DIR_ROWS:
             build_directory_index()
         cached_businesses = DIR_ROWS
-    
+
     # Use Gemini to find matches from cached data
-    gemini_matches = ask_gemini_search_query(query, cached_businesses)
+    gemini_matches = ask_gemini_search_query(query, cached_businesses, user_id=user_id)
     results_with_dummy_scores = [(row, 1.0) for row in gemini_matches[:top_k]]
     
     return results_with_dummy_scores
 
-def find_best_service_gemini(user_input: str, available_services: list):
+def find_best_service_gemini(user_input: str, available_services: list, user_id=None):
     if not available_services:
         return None
 
@@ -616,7 +647,7 @@ def find_best_service_gemini(user_input: str, available_services: list):
     if cached is not None:
         return cached
     
-    if not check_rate_limit(user_id=0):
+    if not check_rate_limit(user_id=user_id):
         logging.warning("⚠️ Rate limit hit, using fuzzy match fallback")
         return close_matches[0] if close_matches else None
 
@@ -652,7 +683,7 @@ Output:
         # If Gemini fails, return the fuzzy match result or None
         return None
 
-def find_best_location_gemini(user_input: str, available_locations: list):
+def find_best_location_gemini(user_input: str, available_locations: list, user_id=None):
     if not available_locations:
         return None
 
@@ -680,7 +711,7 @@ def find_best_location_gemini(user_input: str, available_locations: list):
         return cached
     
     # Only use Gemini if needed AND within rate limit
-    if not check_rate_limit(user_id=0):
+    if not check_rate_limit(user_id=user_id):
         logging.warning("⚠️ Rate limit hit, using fuzzy match fallback")
         return close_matches[0] if close_matches else None
 
@@ -813,6 +844,15 @@ Always stay in character as a human assistant (never mention AI, bots, or langua
 - These tags are automatically stripped before the user sees your reply.
 - Only remember genuinely useful personal facts, not every random statement.
 - If the user tells you to forget something, output [REMEMBER: CLEAR] to reset their memory.
+
+# Search Continuity & Corrections:
+- You have access to the conversation history above. USE IT.
+- If the user's current message looks like a CORRECTION of a previous search (e.g., "no no, not Ikorodu — Ikeja", "try Lagos instead", "what about Lekki?"), understand they want the SAME service but in the NEW location.
+- Respond warmly and naturally. For example: "Got it — let me check for plumbers in Ikeja instead! Tap 🔍 Find a Service and type 'Plumber — Ikeja' to get the results."
+- If you can extract both a service and location from the conversation, always specify both clearly so the user knows exactly what to search.
+- If the correction is ambiguous, ask one short clarifying question.
+- Do NOT say you cannot access search results. Simply guide the user to re-run the search with the corrected details.
+- Never start fresh if the context clearly shows what the user was just asking about.
 
 # Complete Bot Knowledge (use this to answer ALL questions accurately):
 {BOT_KNOWLEDGE}
@@ -998,8 +1038,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_claim_deeplink(update, context, claim_token)
             return ConversationHandler.END
     
-    # Clear conversation memory on standard /start for fresh context
-    conversation_memory.pop(user_id, None)
+    # ✅ Only clear the FLOW STATE (what step the user was on), NOT conversation memory.
+    # Keeping conversation_memory alive means Blue still knows what was discussed
+    # even after the user taps /start to return to main menu.
+    context.user_data.clear()
     markup = get_main_keyboard(user_id)
 
     top_buttons = InlineKeyboardMarkup([
@@ -1305,7 +1347,7 @@ async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not selected_service:
         try:
             logging.info(f"⚠️ No direct match. Trying Gemini for: {user_input}")
-            selected_service = find_best_service_gemini(user_input, available_services)
+            selected_service = find_best_service_gemini(user_input, available_services, user_id=update.effective_user.id)
             if selected_service:
                 logging.info(f"✅ Gemini service match: {selected_service}")
         except Exception as e:
@@ -1442,7 +1484,7 @@ async def search_and_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not matched_location:
         try:
             logging.info(f"⚠️ No direct match found. Trying Gemini for: {user_location_input}")
-            matched_location = find_best_location_gemini(user_location_input, valid_locations)
+            matched_location = find_best_location_gemini(user_location_input, valid_locations, user_id=user_id)
             if matched_location:
                 logging.info(f"✅ Gemini match found: {matched_location}")
         except Exception as e:
@@ -1525,6 +1567,9 @@ async def search_and_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     matches = sorted(matches, key=lambda m: (0 if row_is_premium(m[0]) else 1))
 
     if not matches:
+        # Inject context so Blue knows the search failed and can suggest corrections
+        _inject_user_message(user_id, f"Find {user_service} in {matched_location}")
+        _inject_search_context(user_id, user_service, matched_location, 0)
         await update.message.reply_text(
             f"❌ No results found for *{user_service.title()}* in *{matched_location}*.\n\n"
             "You can try again with a different service/location or register your business.",
@@ -1535,10 +1580,15 @@ async def search_and_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     reply, keyboard = format_matches_reply(matches, customer_id=user_id, is_group=False)
 
+    # ✅ Inject search into conversation memory BEFORE displaying results
+    # This means any follow-up message ("try Ikeja", "what about the first one") will have context
+    _inject_user_message(user_id, f"Find {user_service} in {matched_location}")
+    _inject_search_context(user_id, user_service, matched_location, len(matches))
+
     if keyboard:
         await update.message.reply_text(
-            reply, 
-            parse_mode='HTML', 
+            reply,
+            parse_mode='HTML',
             disable_web_page_preview=True,
             reply_markup=keyboard
         )
@@ -1626,7 +1676,7 @@ def has_pending_new_registration(telegram_id):
     
     pending = PENDING_REGISTRATIONS[telegram_id]
     # Check if it's NOT an upgrade (i.e., it's a new registration)
-    return pending.get('type') != 'ad_boost' and 'coin_purchase'
+    return pending.get('type') not in ('ad_boost', 'coin_purchase')
     
 
 
@@ -1691,7 +1741,7 @@ async def inline_search_handler(update: Update, context: ContextTypes.DEFAULT_TY
     if len(query) > 3:
         try:
             # Short timeout/top_k to avoid "Query is too old" errors
-            matches = smart_directory_search(query, top_k=3)
+            matches = smart_directory_search(query, top_k=3, user_id=update.inline_query.from_user.id)
             for row, _ in matches:
                 title = row.get("business_name", "Unknown")
                 service = row.get("business_services", "")
@@ -1719,61 +1769,178 @@ async def inline_search_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def fallback_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
+    user_id = update.effective_user.id
+    is_private = update.effective_chat.type == "private"
 
+    # ── STEP 0: Store this message in conversation memory immediately ──────
+    # This ensures EVERY message is tracked, not just Gemini-handled ones.
+    _inject_user_message(user_id, user_text)
+
+    # ── STEP 1: Check if this is a search CORRECTION using prior context ───
+    # If the user has a recent search in memory, and this message looks like a
+    # correction ("no, try Ikeja", "what about Lagos?"), extract service + location
+    # and run a live corrected search automatically.
+    prior_memory = conversation_memory.get(user_id, [])
+    has_prior_search = any(
+        "I searched for" in (turn.get("parts") or [""])[0]
+        for turn in prior_memory
+        if turn.get("role") == "model"
+    )
+
+    if has_prior_search:
+        try:
+            # Ask Gemini to interpret whether this is a search correction
+            correction_model = genai.GenerativeModel(GEMINI_MODEL_FOR_CHAT)
+            history_for_correction = prior_memory.copy()
+            history_for_correction.append({
+                "role": "user",
+                "parts": [
+                    f"Is the following message a correction or refinement of my previous search? "
+                    f"If YES, reply ONLY with a JSON object: {{\"service\": \"...\", \"location\": \"...\"}} "
+                    f"using context from the conversation history. "
+                    f"If NO or ambiguous, reply with the single word: NO\n\n"
+                    f"Message: {user_text}"
+                ]
+            })
+            correction_response = await asyncio.to_thread(
+                correction_model.generate_content, history_for_correction
+            )
+            correction_text = (correction_response.text or "").strip()
+            logging.info(f"🧠 Correction detection for '{user_text}': {correction_text}")
+
+            # If Gemini confirmed it's a correction, extract service + location and re-search
+            if correction_text.upper() != "NO" and "{" in correction_text:
+                import json as _json
+                # Extract JSON from response (may have surrounding text)
+                json_match = re.search(r'\{[^}]+\}', correction_text)
+                if json_match:
+                    parsed = _json.loads(json_match.group())
+                    corrected_service = (parsed.get("service") or "").strip()
+                    corrected_location = (parsed.get("location") or "").strip()
+
+                    if corrected_service and corrected_location:
+                        logging.info(f"🔄 Correction detected: service='{corrected_service}', location='{corrected_location}'")
+                        await update.message.reply_chat_action("typing")
+
+                        # Run corrected search
+                        corrected_query = f"{corrected_service} in {corrected_location}"
+                        corrected_matches = smart_directory_search(corrected_query, top_k=5, user_id=user_id)
+                        reply_text, keyboard = format_matches_reply(
+                            corrected_matches,
+                            customer_id=user_id,
+                            is_group=not is_private
+                        )
+
+                        # Store the corrected search in memory
+                        _inject_search_context(user_id, corrected_service, corrected_location, len(corrected_matches))
+
+                        if reply_text:
+                            # Send acknowledgement first, then results
+                            await update.message.reply_text(
+                                f"✅ Got it! Searching for <b>{h_esc(corrected_service)}</b> "
+                                f"in <b>{h_esc(corrected_location)}</b> instead:",
+                                parse_mode='HTML'
+                            )
+                            if is_private:
+                                if keyboard:
+                                    await update.message.reply_text(
+                                        reply_text,
+                                        parse_mode='HTML',
+                                        disable_web_page_preview=True,
+                                        reply_markup=keyboard
+                                    )
+                                else:
+                                    await update.message.reply_text(
+                                        reply_text,
+                                        parse_mode='HTML',
+                                        disable_web_page_preview=True
+                                    )
+                                await update.message.reply_text(
+                                    "Want to refine further or try something completely different?",
+                                    reply_markup=ReplyKeyboardMarkup(
+                                        [['🔍 Find a Service', '🔁 Start Over']],
+                                        one_time_keyboard=True, resize_keyboard=True
+                                    )
+                                )
+                            else:
+                                await update.message.reply_text(
+                                    reply_text, parse_mode='HTML', reply_markup=keyboard
+                                )
+                            return ConversationHandler.END
+
+                        else:
+                            # Correction search got no results — inform naturally
+                            await update.message.reply_text(
+                                f"❌ I couldn't find any <b>{corrected_service}</b> listings in <b>{corrected_location}</b>.\n"
+                                "Try a different location or use 🔍 Find a Service to check available areas.",
+                                parse_mode='HTML',
+                                reply_markup=get_main_keyboard(user_id) if is_private else None
+                            )
+                            return ConversationHandler.END
+
+        except Exception as corr_err:
+            logging.warning(f"⚠️ Correction detection skipped (error): {corr_err}")
+            # Falls through to normal search below
+
+    # ── STEP 2: Try directory search normally ─────────────────────────────
     try:
-        matches = smart_directory_search(user_text)
-        
-        # ✅ FIX: Use the new function that returns both reply AND keyboard
-        reply, keyboard = format_matches_reply(matches, customer_id=update.effective_user.id, is_group=(update.effective_chat.type != 'private'))
-        
+        matches = smart_directory_search(user_text, user_id=user_id)
+        reply, keyboard = format_matches_reply(
+            matches,
+            customer_id=user_id,
+            is_group=not is_private
+        )
+
         if reply:
-            # ✅ FIX: Send with keyboard if it exists
+            # Store the free-text search in memory for future corrections
+            _inject_search_context(user_id, user_text, "your area", len(matches))
+
             if keyboard:
                 await update.message.reply_text(
-                    reply, 
-                    parse_mode='HTML', 
+                    reply,
+                    parse_mode='HTML',
                     disable_web_page_preview=True,
                     reply_markup=keyboard
                 )
             else:
                 await update.message.reply_text(
-                    reply, 
-                    parse_mode='HTML', 
+                    reply,
+                    parse_mode='HTML',
                     disable_web_page_preview=True
                 )
-            
-            await update.message.reply_text(
-                "Want to try another request or register your business?",
-                reply_markup=ReplyKeyboardMarkup(
-                    [['🔁 Start Over', '🏪 Register Your Business']],
-                    one_time_keyboard=True, resize_keyboard=True
+
+            if is_private:
+                await update.message.reply_text(
+                    "Want to try another request or register your business?",
+                    reply_markup=ReplyKeyboardMarkup(
+                        [['🔁 Start Over', '🏪 Register Your Business']],
+                        one_time_keyboard=True, resize_keyboard=True
+                    )
                 )
-            )
             return ConversationHandler.END
     except Exception as e:
         logging.error("Gemini directory search failed in fallback_chat: %s", e)
 
+    # ── STEP 3: Pure Gemini general chat (with full conversation history) ──
     logging.info("💬 Falling back to general Gemini chat for: %s", user_text)
-    reply = await ask_gemini(user_text, user_id=update.effective_user.id)
-    
-    # ✅ FIX: Avoid recommending /find or buttons in group replies
+    reply = await ask_gemini(user_text, user_id=user_id)
+
     if reply and reply.strip():
-        if update.effective_chat.type == "private":
-            markup = get_main_keyboard(update.effective_user.id)
+        if is_private:
+            markup = get_main_keyboard(user_id)
             await update.message.reply_text(reply, reply_markup=markup)
         else:
-            # Strictly No Buttons in Groups
             reply = reply.replace('Tap "🔍 Find a Service"', 'Just ask me to find a service')
             reply = reply.replace('type /find', 'just ask me directly')
             await update.message.reply_text(reply, parse_mode='Markdown')
     else:
-        if update.effective_chat.type == "private":
+        if is_private:
             await update.message.reply_text(
                 "👇 Please tap a button below to continue.\n"
                 "If you don't see them, tap the ⌨️ keyboard icon.",
-                reply_markup=get_main_keyboard(update.effective_user.id)
+                reply_markup=get_main_keyboard(user_id)
             )
-    
+
     return ConversationHandler.END
 
 
@@ -4926,7 +5093,7 @@ async def _group_service_search(update: Update, context: ContextTypes.DEFAULT_TY
     await update.message.reply_chat_action("typing")
 
     try:
-        matches = smart_directory_search(query, top_k=3)
+        matches = smart_directory_search(query, top_k=3, user_id=user_id)
     except Exception as e:
         logging.error(f"Group service search error: {e}")
         matches = []
@@ -4954,13 +5121,25 @@ async def _group_service_search(update: Update, context: ContextTypes.DEFAULT_TY
     await update.message.reply_text(gemini_reply, parse_mode='HTML')
 
 
+async def handle_error(update: object, context: ContextTypes.DEFAULT_TYPE):
+    # Network drops (incl. TimedOut) are normal on Railway and PTB retries them itself
+    if isinstance(context.error, NetworkError):
+        logging.warning("Telegram network error (auto-retrying): %s", context.error)
+        return
+    logging.error("Unhandled error", exc_info=context.error)
+
+
 def main():
     # Create application
     # Bump timeouts to reduce send_photo timeouts for large uploads / slow networks.
     # (Defaults can be too aggressive for media uploads.)
+    # read/write timeouts apply to normal sends (send_photo, reply_text...),
+    # get_updates_* ones only apply to polling.
     application = (
         Application.builder()
         .token(TELEGRAM_TOKEN)
+        .read_timeout(30)
+        .write_timeout(30)
         .get_updates_read_timeout(60)
         .get_updates_write_timeout(60)
         .get_updates_connect_timeout(30)
@@ -4972,6 +5151,7 @@ def main():
     #--application.add_handler(CommandHandler('columns', check_supabase_columns))
 
     application.post_init = post_init
+    application.add_error_handler(handle_error)
 
     # --- Start Over button - MUST be first, NO GROUP to ensure highest priority ---
     application.add_handler(MessageHandler(filters.Regex('^🔁 Start Over$'), start_over))

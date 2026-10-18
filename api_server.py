@@ -479,7 +479,8 @@ async def contact_business(request: Request):
     body = await request.json()
     business_id = body.get('business_id')
     customer_id = body.get('customer_id')
-    
+    init_data = body.get('initData')
+
     if not business_id or not customer_id:
         raise HTTPException(status_code=400, detail="Missing business_id or customer_id")
     
@@ -526,7 +527,12 @@ async def contact_business(request: Request):
     # Legacy business - no coin system
     if not owner_id:
         return {"wa_link": wa_link, "deducted": False, "legacy": True}
-    
+
+    # A real coin gets spent below, so require a Telegram-verified identity here
+    # (unlike read-only endpoints, no falling back to a client-supplied id)
+    verified_user = validate_telegram_data(init_data)
+    customer_id = verified_user["user"]["id"]
+
     # Check cooldown (7 days)
     can_request, msg = can_request_service(customer_id, business_id)
     
